@@ -1,0 +1,13 @@
+# OS / 编辑器
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# 日志与临时文件
+*.log
+*.tmp
+
+# 未来可能的依赖 (项目当前零依赖)
+node_modules/

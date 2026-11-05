@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>暗渊回廊 · Abyss Corridor</title>
+<script>
+// 页面级错误收集 (供自动化测试断言零报错)
+window.__errors = [];
+window.addEventListener('error', function (e) {
+  window.__errors.push(String((e && e.message) || e));
+});
+window.addEventListener('unhandledrejection', function (e) {
+  window.__errors.push('unhandledrejection: ' + String((e && e.reason) || e));
+});
+</script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- 左列: 顶栏 + 画布 -->
+  <div id="game-col">
+    <div id="topbar">
+      <div class="tb-left">
+        <span id="tb-floor">— 深渊未启 —</span>
+        <span id="tb-gold" class="tb-chip">💰 0</span>
+        <span id="tb-turn" class="tb-chip">⏱ 回合 0</span>
+        <span id="tb-seed" class="tb-chip dim" title="本局种子">🌱 —</span>
+        <span id="tb-challenge" class="tb-chip hidden"></span>
+      </div>
+      <div class="tb-right">
+        <button id="btn-help" class="tbtn" title="帮助 (H)">? 帮助</button>
+        <button id="btn-codex" class="tbtn" title="图鉴与成就 (Z)">📖 图鉴</button>
+        <button id="btn-save" class="tbtn" title="手动保存">💾 保存</button>
+        <button id="btn-mute" class="tbtn" title="静音 (M)">🔊 音效</button>
+        <button id="btn-menu" class="tbtn" title="菜单 (Esc)">⏸ 菜单</button>
+      </div>
+    </div>
+    <div id="canvas-wrap">
+      <canvas id="game" width="1152" height="720"></canvas>
+      <div id="toast"></div>
+    </div>
+  </div>
+
+  <!-- 右侧栏: 状态 / 装备 / 背包 / 技能 / 日志 -->
+  <aside id="sidebar">
+    <section id="stats-panel" class="panel">
+      <div class="panel-title">
+        <span id="st-name">无名的旅者</span>
+        <span id="st-level" class="lv-chip">Lv.1</span>
+      </div>
+      <div class="bar-row"><span class="bar-label">生命</span>
+        <div class="bar hp"><div id="bar-hp" class="bar-fill"></div><span id="bar-hp-text" class="bar-text">50/50</span></div>
+      </div>
+      <div class="bar-row"><span class="bar-label">法力</span>
+        <div class="bar mp"><div id="bar-mp" class="bar-fill"></div><span id="bar-mp-text" class="bar-text">20/20</span></div>
+      </div>
+      <div class="bar-row"><span class="bar-label">经验</span>
+        <div class="bar xp"><div id="bar-xp" class="bar-fill"></div><span id="bar-xp-text" class="bar-text">0/20</span></div>
+      </div>
+      <div id="status-icons" class="status-icons"></div>
+      <div id="boon-chips" class="boon-chips"></div>
+      <div class="stats-grid">
+        <span class="sg">攻击 <b id="st-atk">3</b></span>
+        <span class="sg">防御 <b id="st-def">0</b></span>
+        <span class="sg">命中 <b id="st-acc">85</b>%</span>
+        <span class="sg">闪避 <b id="st-eva">5</b>%</span>
+        <span class="sg">暴击 <b id="st-crit">5</b>%</span>
+        <span class="sg">击杀 <b id="st-kills">0</b></span>
+      </div>
+    </section>
+
+    <section id="equip-panel" class="panel">
+      <div class="panel-title">装备</div>
+      <div class="equip-row" data-slot="weapon"><span class="eq-glyph" id="eq-weapon-g">✊</span><span class="eq-info"><span class="eq-name" id="eq-weapon-n">空手</span><span class="eq-sub" id="eq-weapon-s">攻击 3</span></span></div>
+      <div class="equip-row" data-slot="weapon2"><span class="eq-glyph" id="eq-weapon2-g">—</span><span class="eq-info"><span class="eq-name" id="eq-weapon2-n">副手空闲</span><span class="eq-sub" id="eq-weapon2-s">第二把武器会放入副手 (X 切换)</span></span></div>
+      <div class="equip-row" data-slot="armor"><span class="eq-glyph" id="eq-armor-g">🧥</span><span class="eq-info"><span class="eq-name" id="eq-armor-n">布衣</span><span class="eq-sub" id="eq-armor-s">防御 0</span></span></div>
+      <div class="equip-row" data-slot="trinket"><span class="eq-glyph" id="eq-trinket-g">—</span><span class="eq-info"><span class="eq-name" id="eq-trinket-n">无饰品</span><span class="eq-sub" id="eq-trinket-s">点击背包中饰品装备</span></span></div>
+    </section>
+
+    <section id="inv-panel" class="panel">
+      <div class="panel-title">背包 <span class="dim" id="inv-count">0/12</span></div>
+      <div id="inv-grid"></div>
+      <div class="panel-hint">左键使用/装备 · 右键丢弃</div>
+    </section>
+
+    <section id="skill-panel" class="panel">
+      <div class="panel-title">技能</div>
+      <div id="skill-list"></div>
+    </section>
+
+    <section id="log-panel" class="panel">
+      <div class="panel-title">冒险日志</div>
+      <ul id="log"></ul>
+    </section>
+  </aside>
+</div>
+
+<!-- 覆盖层们 -->
+<div id="overlay-title" class="overlay visible">
+  <div class="ov-box title-box">
+    <div class="game-logo">暗渊回廊</div>
+    <div class="game-sub">ABYSS CORRIDOR · 一场通往深渊第 15 层的回合一命之旅</div>
+    <div id="title-shards" class="title-shards">💎 魂晶 0</div>
+    <div class="menu-btns">
+      <button id="btn-new-run" class="mbtn primary">⚔ 新的冒险</button>
+      <button id="btn-continue" class="mbtn">▶ 继续上次 (如存档)</button>
+      <button id="btn-title-challenge" class="mbtn">🎯 挑战模式</button>
+      <button id="btn-title-talents" class="mbtn">💎 天赋 · 魂晶</button>
+      <button id="btn-title-help" class="mbtn">? 玩法说明</button>
+      <button id="btn-title-codex" class="mbtn">📖 图鉴 · 成就 · 纪录</button>
+    </div>
+    <div class="title-hint">方向键 / WASD 移动 · 撞击攻击 · 自动探索 F · 楼梯处按 Enter 下楼</div>
+    <div id="title-record" class="title-record"></div>
+  </div>
+</div>
+
+<div id="overlay-death" class="overlay">
+  <div class="ov-box death-box">
+    <div class="death-title">你倒在了深渊里</div>
+    <div id="death-cause" class="death-cause">—</div>
+    <div id="death-stats" class="death-stats"></div>
+    <div class="menu-btns">
+      <button id="btn-death-retry" class="mbtn primary">🕯 再次下潜 (新的地牢)</button>
+      <button id="btn-death-menu" class="mbtn">回到主菜单</button>
+    </div>
+  </div>
+</div>
+
+<div id="overlay-win" class="overlay">
+  <div class="ov-box win-box">
+    <div class="win-title">🏆 屠龙者!</div>
+    <div class="win-sub">深渊之龙倒下了, 光重新照进回廊。但深渊没有底——第 16 层之后, 是无尽回廊…</div>
+    <div id="win-stats" class="death-stats"></div>
+    <div class="menu-btns">
+      <button id="btn-win-endless" class="mbtn primary">🐉 进入无尽回廊 (继续)</button>
+      <button id="btn-win-menu" class="mbtn">回到主菜单</button>
+    </div>
+  </div>
+</div>
+
+<div id="overlay-help" class="overlay">
+  <div class="ov-box help-box">
+    <div class="ov-title">玩法说明</div>
+    <div class="help-cols">
+      <div>
+        <h4>🎯 目标</h4>
+        <p>逐层下潜, 到达第 15 层并击败深渊之龙。第 5/10/15 层有 Boss 把守。死亡即删档, 每局地牢随机。</p>
+        <h4>⌨ 操作</h4>
+        <table class="keys">
+          <tr><td>↑↓←→ / WASD / 小键盘</td><td>移动 · 撞击敌人=攻击</td></tr>
+          <tr><td>Enter / G</td><td>下楼 · 交互 · 购买</td></tr>
+          <tr><td>空格 或 .</td><td>原地等待一回合</td></tr>
+          <tr><td>A</td><td>左移 (WASD) — 自动探索请按 <b>F</b></td></tr>
+          <tr><td>F</td><td>自动探索(遇敌中止)</td></tr>
+          <tr><td>R</td><td>原地休息到满血</td></tr>
+          <tr><td>1 ~ 5</td><td>释放技能(自动锁定最近敌人)</td></tr>
+          <tr><td>X</td><td>切换主/副手武器</td></tr>
+          <tr><td>Q</td><td>喝治疗药水</td></tr>
+          <tr><td>鼠标左键</td><td>点地砖=自动寻路 · 点敌人=走近攻击 · 点技能=释放</td></tr>
+          <tr><td>Z / H / M / Esc</td><td>图鉴 / 帮助 / 静音 / 菜单</td></tr>
+        </table>
+      </div>
+      <div>
+        <h4>🧭 生存法则</h4>
+        <ul class="help-list">
+          <li>🟢 <b>绿色楼梯</b>通向下一层, 走上去按 Enter。</li>
+          <li>🔥 <b>火把</b>扩大视野; 洞穴层视野更暗。</li>
+          <li>💰 商人房里踩上商品按 Enter 购买; 金币留给好装备。</li>
+          <li>⛲ 泉水全恢复, 通常在 Boss 房前。</li>
+          <li>💊 背包 12 格, 满了就右键丢弃不需要的物品。</li>
+          <li>🧪 状态效果: 中毒🟣 灼烧🔴 冰冻❄ 力量🟠 护盾🔵 再生🟢, 图标见血条下方。</li>
+          <li>📦 宝箱需要走到旁边按 Enter 打开。</li>
+          <li>👻 幽魂会穿墙, 别以为躲在墙后绝对安全。</li>
+          <li>🏹 <b>远程武器</b>(弓/法杖/回旋刃): 朝敌人方向按键即射击; 主副手按 <b>X</b> 切换, 法杖每次发射耗 2 法力。</li>
+          <li>🧬 掉落装备可能带随机<b>词条</b>(吸血/灼烧/连击/破甲…), 名字里会显示。</li>
+          <li>✨ 每层开始<b>三选一祝福</b>, 可叠加 — 想好这局要玩什么流派。</li>
+          <li>👑 金色光环的是<b>精英怪</b>, 更强但必掉好货; 🚪 某些房间进门会<b>关门打狗</b>, 清场开宝箱。</li>
+          <li>💎 死亡/通关结算<b>魂晶</b>, 回主菜单可在「天赋」中永久变强。</li>
+          <li>🎯 挑战因子 (疯狂/浓雾/坚壁) 更难, 魂晶收益 ×1.5。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="menu-btns"><button id="btn-help-close" class="mbtn primary">明白了</button></div>
+  </div>
+</div>
+
+<div id="overlay-codex" class="overlay">
+  <div class="ov-box codex-box">
+    <div class="ov-title">图鉴 · 成就 · 纪录</div>
+    <div class="codex-tabs">
+      <button class="ctab active" data-tab="bestiary">👹 敌人图鉴</button>
+      <button class="ctab" data-tab="achievements">🏅 成就</button>
+      <button class="ctab" data-tab="records">📈 纪录</button>
+    </div>
+    <div id="codex-body" class="codex-body"></div>
+    <div class="menu-btns"><button id="btn-codex-close" class="mbtn primary">关闭</button></div>
+  </div>
+</div>
+
+<div id="overlay-boon" class="overlay">
+  <div class="ov-box boon-box">
+    <div class="ov-title">✨ 深渊的馈赠 — 选择一项祝福</div>
+    <div id="boon-cards" class="boon-cards"></div>
+    <div class="panel-hint">按 1 / 2 / 3 或点击卡片选择 · 祝福可叠加, 构筑你的流派</div>
+  </div>
+</div>
+
+<div id="overlay-talents" class="overlay">
+  <div class="ov-box">
+    <div class="ov-title">💎 天赋 · 魂晶</div>
+    <div id="talent-shards" style="text-align:center;color:var(--gold);margin-bottom:12px;font-size:14px;"></div>
+    <div id="talent-list" class="talent-list"></div>
+    <div class="menu-btns"><button id="btn-talents-close" class="mbtn primary">返回</button></div>
+  </div>
+</div>
+
+<div id="overlay-challenge" class="overlay">
+  <div class="ov-box">
+    <div class="ov-title">🎯 挑战模式</div>
+    <div class="panel-hint" style="margin-bottom:12px">选择一个挑战因子开启新的一局 — 更难, 但魂晶收益 ×1.5</div>
+    <div id="challenge-cards" class="challenge-cards"></div>
+    <div class="menu-btns"><button id="btn-challenge-none" class="mbtn">不用了, 普通开局</button></div>
+  </div>
+</div>
+
+<div id="overlay-menu" class="overlay">
+  <div class="ov-box menu-box">
+    <div class="ov-title">暂停</div>
+    <div class="menu-btns">
+      <button id="btn-menu-resume" class="mbtn primary">▶ 继续游戏</button>
+      <button id="btn-menu-save" class="mbtn">💾 保存并继续</button>
+      <button id="btn-menu-help" class="mbtn">? 玩法说明</button>
+      <button id="btn-menu-abandon" class="mbtn danger">☠ 放弃本局 (删档回主菜单)</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/core/rng.js"></script>
+<script src="js/core/util.js"></script>
+<script src="js/data/config.js"></script>
+<script src="js/data/tiles.js"></script>
+<script src="js/data/affixes.js"></script>
+<script src="js/data/items.js"></script>
+<script src="js/data/enemies.js"></script>
+<script src="js/data/floors.js"></script>
+<script src="js/data/boons.js"></script>
+<script src="js/data/talents.js"></script>
+<script src="js/systems/mapgen.js"></script>
+<script src="js/systems/fov.js"></script>
+<script src="js/systems/pathing.js"></script>
+<script src="js/systems/combat.js"></script>
+<script src="js/systems/status.js"></script>
+<script src="js/systems/ai.js"></script>
+<script src="js/systems/particles.js"></script>
+<script src="js/systems/audio.js"></script>
+<script src="js/systems/save.js"></script>
+<script src="js/systems/meta.js"></script>
+<script src="js/ui/render.js"></script>
+<script src="js/ui/hud.js"></script>
+<script src="js/ui/screens.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

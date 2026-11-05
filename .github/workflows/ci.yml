@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 运行 headless 回归 (地图/FOV/战斗/整局bot/存档/新系统)
+        run: node tools/smoke.js
+      - name: 验证单文件构建
+        run: |
+          node tools/build-single.js
+          grep -q "暗渊回廊" dist/abyss-corridor.html
