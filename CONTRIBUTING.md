@@ -5,12 +5,15 @@
 ## 🚀 快速上手
 
 ```bash
-git clone https://github.com/<OWNER>/abyss-corridor.git
+git clone https://github.com/hualuochuanglingqian/abyss-corridor.git
 cd abyss-corridor
 # 玩: 直接双击 index.html
 # 调试: 起一个禁缓存静态服务器
 node tools/serve.js 8124   # → http://127.0.0.1:8124/
 ```
+
+> 📖 **第一次参与？** 从下载、建分支、自测到发 PR 的保姆级操作手册见 [`docs/协作流程.md`](docs/协作流程.md)；
+> 每次提 PR 必须更新 [`CHANGELOG.md`](CHANGELOG.md)「未发布」小节，写法见该文件文末规范。
 
 ## ✅ 提交前请过回归
 

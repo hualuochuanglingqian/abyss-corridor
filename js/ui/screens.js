@@ -106,6 +106,8 @@ const Screens = (() => {
   function title() {
     hideAll();
     refreshRecord();
+    const vEl = Util.el('game-version');
+    if (vEl) vEl.textContent = `v${CONFIG.VERSION} · MIT 开源 · 欢迎共建`;
     Util.el('title-shards').textContent = `💎 魂晶 ${Util.fmt(Meta.data.shards || 0)} · 死亡与通关都会凝结魂晶, 在「天赋」中永久变强`;
     show('overlay-title');
     const btn = Util.el('btn-continue');

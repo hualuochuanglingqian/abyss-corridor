@@ -92,7 +92,10 @@ abyss-corridor/
 │   ├── serve.js            禁缓存静态服务器（自动化测试用）
 │   └── build-single.js     单文件打包
 ├── dist/abyss-corridor.html 单文件分发版
-└── docs/设计文档.md         完整设计文档（系统/数值/里程碑）
+├── CHANGELOG.md             修改日志（每次 PR 必须更新「未发布」小节）
+└── docs/
+    ├── 设计文档.md           完整设计文档（系统/数值/里程碑）
+    └── 协作流程.md           从 clone 到 PR 的保姆级操作手册
 ```
 
 ## 🛠 开发与测试

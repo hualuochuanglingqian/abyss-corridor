@@ -439,6 +439,7 @@ body {
     </div>
     <div class="title-hint">方向键 / WASD 移动 · 撞击攻击 · 自动探索 F · 楼梯处按 Enter 下楼</div>
     <div id="title-record" class="title-record"></div>
+    <div id="game-version" class="title-record"></div>
   </div>
 </div>
 
@@ -788,6 +789,7 @@ const Util = {
 'use strict';
 
 const CONFIG = {
+  VERSION: '2.0.0',       // 与 CHANGELOG.md 同步, 标题画面显示
   TILE: 24,               // 图块像素
   MAP_W: 48,              // 地图宽 (格)
   MAP_H: 30,              // 地图高 (格)
@@ -5458,6 +5460,8 @@ const Screens = (() => {
   function title() {
     hideAll();
     refreshRecord();
+    const vEl = Util.el('game-version');
+    if (vEl) vEl.textContent = `v${CONFIG.VERSION} · MIT 开源 · 欢迎共建`;
     Util.el('title-shards').textContent = `💎 魂晶 ${Util.fmt(Meta.data.shards || 0)} · 死亡与通关都会凝结魂晶, 在「天赋」中永久变强`;
     show('overlay-title');
     const btn = Util.el('btn-continue');
