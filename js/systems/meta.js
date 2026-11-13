@@ -21,6 +21,8 @@ const ACHIEVEMENTS = [
   { id: 'ambush_clear', name: '关门打狗',     icon: '🚪', desc: '清剿一处伏击房' },
   { id: 'dual_wield',   name: '双持大师',     icon: '🖖', desc: '同时装备两把武器' },
   { id: 'challenge_win',name: '因子挑战者',   icon: '🎯', desc: '在挑战模式下通关深渊之龙' },
+  { id: 'daily_play',   name: '每日打卡',     icon: '☀️', desc: '完成一次每日挑战 (死亡或通关都算)' },
+  { id: 'cursed_pact',  name: '敢于诅咒',     icon: '😈', desc: '接受一张诅咒祝福' },
 ];
 
 const META_KEY = 'abyss_corridor_meta_v1';
@@ -29,7 +31,7 @@ const Meta = (() => {
   let data = {
     achievements: {},   // id -> true
     bestiary: {},       // enemyId -> 击杀数
-    records: { deepest: 1, bestScore: 0, runs: 0, wins: 0 },
+    records: { deepest: 1, bestScore: 0, runs: 0, wins: 0, totalKills: 0, dailyBest: null, challengeBest: null },
     chests: 0,
     shards: 0,          // 魂晶 (局外货币)
     talents: {},        // 局外天赋等级
@@ -44,7 +46,8 @@ const Meta = (() => {
       if (s) {
         const d = JSON.parse(s);
         data = Object.assign(data, d);
-        data.records = Object.assign({ deepest: 1, bestScore: 0, runs: 0, wins: 0 }, d.records || {});
+        data.records = Object.assign({ deepest: 1, bestScore: 0, runs: 0, wins: 0, totalKills: 0, dailyBest: null, challengeBest: null }, d.records || {});
+        if (!isFinite(data.records.totalKills)) data.records.totalKills = 0;
         data.shards = data.shards || 0;
         data.talents = data.talents || {};
       }
@@ -71,7 +74,7 @@ const Meta = (() => {
   /** 击杀记录 → 图鉴 + 击杀成就 */
   function recordKill(enemyId) {
     data.bestiary[enemyId] = (data.bestiary[enemyId] || 0) + 1;
-    data.records.totalKills++;
+    data.records.totalKills = (data.records.totalKills || 0) + 1;
     save();
   }
 
@@ -122,6 +125,16 @@ const Meta = (() => {
       data.daily.bestScore = Math.max(data.daily.bestScore, score);
       data.daily.deepest = Math.max(data.daily.deepest, floor);
     }
+    // 挑战模式最佳纪录
+    if (game.challenge) {
+      const cur = data.records.challengeBest;
+      if (!cur || score > cur.score) {
+        data.records.challengeBest = { id: game.challenge.id, name: game.challenge.name, score, floor };
+      }
+      if (won) unlock('challenge_win');
+    }
+    // 每日挑战: 打卡成就 (死亡或通关都算)
+    if (game.daily) unlock('daily_play');
     // 魂晶结算: 层数 + 击杀 + 通关奖励; 挑战 ×1.5; 魂引天赋 ×1.25
     let shards = Math.round(floor * 3 + p.kills / 2 + (won ? 80 : 0));
     if (game.challenge) shards = Math.round(shards * 1.5);

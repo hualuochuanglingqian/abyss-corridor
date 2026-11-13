@@ -10,6 +10,13 @@ const AudioSys = (() => {
   let musicGain = null;
   let unlocked = false;
   let muted = false;
+  // 音量三档循环: 🔊 0.55 → 🔉 0.25 → 🔇 0 → 🔊, 持久化到 localStorage
+  let volume = 0.55;
+  try {
+    const vs = (typeof localStorage !== 'undefined') ? localStorage.getItem('abyss_volume') : null;
+    if (vs !== null && isFinite(parseFloat(vs))) volume = Util.clamp(parseFloat(vs), 0, 1);
+    muted = volume <= 0;
+  } catch (e) {}
   let musicTimer = null;
   let noiseBuf = null;
 
@@ -20,7 +27,7 @@ const AudioSys = (() => {
       if (!AC) return false;
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = 0.55;
+      master.gain.value = volume;
       master.connect(ctx.destination);
       musicGain = ctx.createGain();
       musicGain.gain.value = 0.0;
@@ -236,21 +243,25 @@ const AudioSys = (() => {
     }
   }
 
+  /** 设置音量 (0~1) 并持久化 */
+  function setVolume(v) {
+    volume = Util.clamp(v, 0, 1);
+    muted = volume <= 0;
+    if (ctx) master.gain.value = volume;
+    try { localStorage.setItem('abyss_volume', String(volume)); } catch (e) {}
+    if (volume > 0 && unlocked && !musicTimer) startAmbience();
+    return volume;
+  }
+
+  /** 🔊 → 🔉 → 🔇 → 🔊 循环, 返回新音量 */
   function toggleMute() {
-    muted = !muted;
-    if (muted) {
-      if (ctx) master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
-    } else {
-      if (ctx) master.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 0.1);
-      // 若静音恢复时游戏在玩, 重启氛围
-      if (!musicTimer) startAmbience();
-    }
-    return muted;
+    return setVolume(volume > 0 ? (volume > 0.3 ? 0.25 : 0) : 0.55);
   }
 
   return {
-    unlock, play, startAmbience, stopAmbience, toggleMute,
+    unlock, play, startAmbience, stopAmbience, toggleMute, setVolume,
     get muted() { return muted; },
+    get volume() { return volume; },
     get ready() { return unlocked && !muted; },
   };
 })();

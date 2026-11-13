@@ -27,7 +27,12 @@ const MapGen = (() => {
       key(x, y) { return y * w + x; },
       inBounds(x, y) { return x >= 0 && y >= 0 && x < w && y < h; },
       tile(x, y) { return this.inBounds(x, y) ? this.tiles[y * w + x] : T.VOID; },
-      set(x, y, t) { if (this.inBounds(x, y)) this.tiles[y * w + x] = t; },
+      set(x, y, t) {
+        if (this.inBounds(x, y)) {
+          this.tiles[y * w + x] = t;
+          this.version = (this.version || 0) + 1;  // 渲染静态层缓存失效依据
+        }
+      },
       blocksMove(x, y) { return !this.inBounds(x, y) || Tiles.blocksMove(this.tiles[y * w + x]); },
       blocksSight(x, y) { return !this.inBounds(x, y) || Tiles.blocksSight(this.tiles[y * w + x]); },
       /** 通用可走判定 (不含实体占用) */
@@ -409,11 +414,34 @@ const MapGen = (() => {
     b.x = best.x; b.y = best.y; b.homeX = best.x; b.homeY = best.y;
     b.guarding = true;
     L.enemies.push(b);
+    // 无尽回廊每 10 层: 双生 Boss (两位首领同场镇守)
+    if (floor > CONFIG.MAX_FLOOR && (floor - CONFIG.MAX_FLOOR) % 10 === 0) {
+      const cycle = ['boss_butcher', 'boss_king', 'boss_dragon'];
+      const idx = cycle.indexOf(bossId);
+      const twinId = cycle[(idx + 1 + rng.int(0, 1)) % 3];
+      const deep2 = floor - CONFIG.MAX_FLOOR;
+      const twin = Enemies.mk(twinId, floor, rng, { chal: L.chal });
+      twin.maxHp = Math.round(twin.maxHp * (1 + deep2 * 0.22));
+      twin.hp = twin.maxHp;
+      twin.atk = Math.round(twin.atk * (1 + deep2 * 0.08));
+      let tb = null;
+      for (let i = 0; i < L.tiles.length; i++) {
+        if (L.tiles[i] !== T.FLOOR) continue;
+        const x = i % L.w, y = (i / L.w) | 0;
+        const d2 = Util.mdist(x, y, best.x, best.y);
+        if (d2 >= 3 && d2 <= 6 && !L.enemyAt(x, y) && !(x === L.spawn.x && y === L.spawn.y)) { tb = { x, y }; break; }
+      }
+      if (!tb) tb = { x: best.x + 1, y: best.y };
+      clearEnemyAt(L, tb.x, tb.y);
+      twin.x = tb.x; twin.y = tb.y; twin.homeX = tb.x; twin.homeY = tb.y;
+      twin.guarding = true;
+      L.enemies.push(twin);
+    }
     // 少量护卫
     const tiles = rng.shuffled(spawnableTiles(L, 10));
     for (let i = 0; i < 2 && tiles.length; i++) {
       const p = tiles.pop();
-      const e = Enemies.mk(Enemies.pickForFloor(floor, rng), floor, rng);
+      const e = Enemies.mk(Enemies.pickForFloor(floor, rng), floor, rng, { chal: L.chal });
       e.x = p.x; e.y = p.y; e.homeX = p.x; e.homeY = p.y;
       L.enemies.push(e);
     }

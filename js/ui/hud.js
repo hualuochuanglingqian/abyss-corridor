@@ -117,11 +117,14 @@ const HUD = (() => {
       }).join('');
     }
 
-    // 挑战因子
+    // 挑战因子 / 每日挑战
     if (els.chal) {
-      if (game.challenge) {
-        els.chal.textContent = `${game.challenge.icon} ${game.challenge.name}`;
-        els.chal.title = game.challenge.desc;
+      const parts = [];
+      if (game.challenge) parts.push(`${game.challenge.icon} ${game.challenge.name}`);
+      if (game.daily) parts.push('📅 每日挑战');
+      if (parts.length) {
+        els.chal.textContent = parts.join(' · ');
+        els.chal.title = game.challenge ? game.challenge.desc : '每日挑战: 全世界同一天玩同一张地牢';
         els.chal.classList.remove('hidden');
       } else {
         els.chal.classList.add('hidden');

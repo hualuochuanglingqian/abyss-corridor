@@ -560,6 +560,40 @@ simLog('\n=== 5. 存档往返检查 ===');
   }
 }
 
+// ---------- 4d. 本轮新增: 双生Boss/每日确定性/诅咒/新武器字段 ----------
+simLog('\n=== 4d. 双生Boss/每日确定性/诅咒祝福 ===');
+{
+  // 双生 Boss: 无尽第 25 层 (deep 10)
+  const L25 = MapGen.generate('TWIN-A', 25);
+  const bosses = L25.enemies.filter(e => e.boss);
+  simAssert(bosses.length === 2, `无尽 25 层应双生 Boss (实际 ${bosses.length})`);
+  if (bosses.length === 2) simAssert(bosses[0].id !== bosses[1].id, '双生 Boss 应为不同首领');
+  const L26 = MapGen.generate('TWIN-A', 26);
+  simAssert(L26.enemies.filter(e => e.boss).length <= 1, '无尽 26 层不应双生');
+  // 每日种子确定性
+  const Ld1 = MapGen.generate('DAILY-2026-11-14', 3);
+  const Ld2 = MapGen.generate('DAILY-2026-11-14', 3);
+  simAssert(JSON.stringify(Array.from(Ld1.tiles)) === JSON.stringify(Array.from(Ld2.tiles)), '每日种子: 同种子同地牢');
+  // 诅咒祝福
+  const bpc = { boons: {}, baseMaxHp: 100, baseMaxMp: 20, baseAtk: 3, baseDef: 0, equip: {} };
+  Boons.give(bpc, 'blood_pact');
+  const bbc = Boons.bonus(bpc);
+  simAssert(bbc.crit === 25 && bbc.flag.hpPct === -0.15, `血誓: 暴击/生命% 未生效 (${bbc.crit}/${bbc.flag.hpPct})`);
+  const bpt = { boons: {}, baseMaxHp: 100, baseMaxMp: 20, baseAtk: 3, baseDef: 0, equip: {} };
+  Boons.give(bpt, 'titan');
+  simAssert(Boons.bonus(bpt).eva === -25, '泰坦之诅: 闪避 -25 未生效');
+  simAssert(Boons.all().filter(id => BOONS[id].cursed).length >= 3, '诅咒祝福至少 3 张');
+  // 新武器字段与掉落池
+  simAssert(ITEMS['w_bow3'].flag && ITEMS['w_bow3'].flag.pierceLine === true, '穿云弓: pierceLine 缺失');
+  simAssert(ITEMS['w_xbow1'].sub === 'scatter', '散弹弩: sub 应为 scatter');
+  simAssert(ITEMS['w_wand3'].flag && ITEMS['w_wand3'].flag.chain === 2, '连锁法杖: chain 缺失');
+  simAssert(Items.tiersForFloor(5).eq.includes('w_bow3'), '穿云弓应进入 F5 装备池');
+  simAssert(Items.tiersForFloor(4).eq.includes('w_xbow1'), '散弹弩应进入 F4 装备池');
+  simAssert(NO_SHOP.has('w_bow3') && NO_SHOP.has('w_wand3'), '穿云弓/连锁法杖不应进商店');
+  // 纪录字段
+  simAssert('totalKills' in Meta.data.records && 'challengeBest' in Meta.data.records, '纪录字段缺失 (totalKills/challengeBest)');
+}
+
 simLog('\n=== 结果 ===');
 if (simFailures === 0) simLog('✅ 全部检查通过');
 else simLog(`❌ ${simFailures} 项失败`);

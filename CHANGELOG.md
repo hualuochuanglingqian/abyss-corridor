@@ -10,6 +10,23 @@
 
 > 📌 下一个版本的候选条目堆在这里，合并发版时统一改成版本号+日期。
 
+### 新增 Added
+- **无尽双生 Boss**：无尽回廊每 10 层（第 25/35…层）两位首领同场镇守，互相不同种 — @hualuochuanglingqian
+- **三档音量循环**：🔊 55% → 🔉 25% → 🔇，顶栏按钮/M 键循环，选择持久化 — @hualuochuanglingqian
+- 新成就：☀️ **每日打卡**（完成一次每日挑战）· 😈 **敢于诅咒**（接受一张诅咒祝福）— @hualuochuanglingqian
+- 纪录页新增 **🏆 挑战最佳**（挑战模式历史最高分）— @hualuochuanglingqian
+
+### 变更 Changed
+- **渲染器 GC 治理**：静态图层（图块+光照+迷雾）离屏缓存、全部光晕预渲染为精灵、暗度查表——200 帧探针：常见帧 2.9ms → **0.1ms**，p99 54ms → 10.7ms（仅换帧重绘），低端机不再卡顿 — @hualuochuanglingqian
+- 穿云弓 / 连锁法杖加入稀有池，不再出现在商店 — @hualuochuanglingqian
+- 散弹弩/连锁法杖等远程武器随挑战因子正确缩放 — @hualuochuanglingqian
+
+### 修复 Fixed
+- 修复打开宝箱时因未定义变量导致的崩溃 — @hualuochuanglingqian
+- 修复「累计击杀」在首次会话显示 NaN 的问题 — @hualuochuanglingqian
+- 修复每日挑战进度在刷新读档后丢失标记的问题 — @hualuochuanglingqian
+- 悬停物品提示现在显示完整词条名 — @hualuochuanglingqian
+
 ## [2.1.0] - 2026-11-14 · 「深渊军械库」版
 
 ### 新增 Added

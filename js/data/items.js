@@ -112,7 +112,7 @@ const ITEMS = {
 };
 
 // 商店不出售的稀有品
-const NO_SHOP = new Set(['a_dragon', 'w_demon', 'w_bow2', 'w_wand2', 'w_bom2', 'tr_blood', 'p_hp_l']);
+const NO_SHOP = new Set(['a_dragon', 'w_demon', 'w_bow2', 'w_bow3', 'w_wand2', 'w_wand3', 'w_bom2', 'tr_blood', 'p_hp_l']);
 
 const Items = {
   _uid: 1,

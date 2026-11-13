@@ -80,9 +80,9 @@ const Screens = (() => {
       game.saveRun(true);
     });
     $('btn-mute').addEventListener('click', () => {
-      const muted = AudioSys.toggleMute();
-      $('btn-mute').textContent = muted ? '🔇 静音' : '🔊 音效';
-      if (!muted) AudioSys.play('ui');
+      const v = AudioSys.toggleMute();
+      $('btn-mute').textContent = v === 0 ? '🔇 静音' : (v <= 0.3 ? '🔉 音效' : '🔊 音效');
+      if (v > 0) AudioSys.play('ui');
     });
     $('btn-menu').addEventListener('click', () => {
       if (game.state === 'play') openMenu();
@@ -194,6 +194,7 @@ const Screens = (() => {
         <tr><td>累计开箱</td><td>${Meta.data.chests}</td></tr>
         <tr><td>图鉴收录</td><td>${seenKinds} / ${totalKinds}</td></tr>
         <tr><td>☀️ 每日挑战</td><td>${daily && daily.date ? `${daily.date} · 最佳 ${Util.fmt(daily.bestScore)} 分 · 最深 ${daily.deepest} 层` : '今日尚未挑战'}</td></tr>
+        <tr><td>🏆 挑战最佳</td><td>${r.challengeBest ? `${r.challengeBest.name} · ${Util.fmt(r.challengeBest.score)} 分 (第 ${r.challengeBest.floor} 层)` : '—'}</td></tr>
       </table>`;
     }
   }

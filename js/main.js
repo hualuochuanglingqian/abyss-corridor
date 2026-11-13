@@ -177,6 +177,7 @@ const Game = {
     this.seed = d.seed;
     this.rng = new RNG(d.seed);
     this.challenge = d.challenge || null;
+    this.daily = !!d.daily;
     this.floor = d.floor;
     this.turn = d.turn;
     this.endless = d.mode === 'endless';
@@ -327,7 +328,8 @@ const Game = {
     Boons.give(this.player, id);
     const d = Boons.def(id);
     const n = this.player.boons[id];
-    this.msg(`✨ 获得祝福: ${d.icon} <b>${d.name}</b>${n > 1 ? ' ×' + n : ''} — ${d.desc}`, 'magic');
+    if (d.cursed) Meta.unlock('cursed_pact');
+    this.msg(`${d.cursed ? '😈 恶魔低语: ' : '✨ 获得祝福: '}${d.icon} <b>${d.name}</b>${n > 1 ? ' ×' + n : ''} — ${d.desc}`, d.cursed ? 'warn' : 'magic');
     AudioSys.play('levelup');
     this.recalcStats();
     this.boonChoices = null;
@@ -854,6 +856,7 @@ const Game = {
     if (L.chest) L.chest.opened = true;
     L.set(at.x, at.y, T.FLOOR);
     // 战利品
+    const rng = this.rng;
     const drops = [
       Items.randomItem(rng, this.floor + 1, { eq: true }),
       Items.randomItem(rng, this.floor, {}),
@@ -1399,8 +1402,8 @@ const Game = {
       if (k === 'h' || k === 'H' || k === '?') { e.preventDefault(); Screens.openHelp('play'); return; }
       if (k === 'm' || k === 'M') {
         e.preventDefault();
-        const muted = AudioSys.toggleMute();
-        Util.el('btn-mute').textContent = muted ? '🔇 静音' : '🔊 音效';
+        const v = AudioSys.toggleMute();
+        Util.el('btn-mute').textContent = v === 0 ? '🔇 静音' : (v <= 0.3 ? '🔉 音效' : '🔊 音效');
         return;
       }
       if (/^[1-5]$/.test(k)) { e.preventDefault(); this.castSkill(parseInt(k, 10) - 1); return; }
