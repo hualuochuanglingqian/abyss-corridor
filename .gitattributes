@@ -1,0 +1,8 @@
+# 所有文本文件入库用 LF, 工作区 checkout 也保持 LF (跨平台协作不再有 CRLF 噪音)
+* text=auto eol=lf
+
+# 二进制
+*.png binary
+*.jpg binary
+*.webm binary
+*.ico binary
