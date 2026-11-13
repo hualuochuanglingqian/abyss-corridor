@@ -17,8 +17,11 @@ const ITEMS = {
   // ---------------- 武器·远程 ----------------
   w_bow1:  { name: '短弓',     glyph: '🏹', kind: 'weapon', sub: 'bow', range: 5, tier: 2, price: 95,  atk: 4,  crit: 4,  acc: 4, desc: '朝面向方向射出箭矢 (直线 5 格)。' },
   w_bow2:  { name: '猎手长弓', glyph: '🏹', kind: 'weapon', sub: 'bow', range: 6, tier: 4, price: 230, atk: 7,  crit: 6,  acc: 6, desc: '直线弹道, 站得远才安全。' },
+  w_bow3:  { name: '穿云弓',   glyph: '🏹', kind: 'weapon', sub: 'bow', range: 6, tier: 5, price: 310, atk: 6,  crit: 6,  acc: 4, flag: { pierceLine: true }, desc: '箭矢贯穿一整排敌人, 排队送死吧。' },
+  w_xbow1: { name: '散弹弩',   glyph: '🎯', kind: 'weapon', sub: 'scatter', range: 4, tier: 4, price: 250, atk: 3,  crit: 10, acc: 0, desc: '朝面向方向扇形三矢, 贴脸毁灭性。' },
   w_wand1: { name: '学徒法杖', glyph: '🪄', kind: 'weapon', sub: 'wand', range: 6, tier: 2, price: 100, atk: 5,  crit: 4,  acc: 0, desc: '自动锁定最近敌人 (2 法力/发)。' },
   w_wand2: { name: '星辉法杖', glyph: '🪄', kind: 'weapon', sub: 'wand', range: 7, tier: 5, price: 280, atk: 8,  crit: 6,  acc: 0, desc: '更强的追踪魔法弹 (2 法力/发)。' },
+  w_wand3: { name: '连锁法杖', glyph: '🪄', kind: 'weapon', sub: 'wand', range: 6, tier: 5, price: 330, atk: 5,  crit: 4,  acc: 0, flag: { chain: 2 }, desc: '魔法弹在敌人间弹跳两次 (2 法力/发)。' },
   w_bom1:  { name: '回旋刃',   glyph: '🪃', kind: 'weapon', sub: 'bom', range: 4, tier: 3, price: 140, atk: 5,  crit: 5,  acc: 4, desc: '去回双击, 可命中路径上至多 2 个敌人。' },
   w_bom2:  { name: '飞斧',     glyph: '🪃', kind: 'weapon', sub: 'bom', range: 4, tier: 5, price: 290, atk: 8,  crit: 5,  acc: 2, desc: '沉重的去回双击。' },
 
@@ -256,8 +259,8 @@ const Items = {
       1: ['w_club'],
       2: ['w_iron', 'w_bow1', 'w_wand1'],
       3: ['w_axe', 'w_bom1'],
-      4: ['w_knight', 'w_bow2'],
-      5: ['w_rune', 'w_wand2', 'w_bom2'],
+      4: ['w_knight', 'w_bow2', 'w_xbow1'],
+      5: ['w_rune', 'w_bow3', 'w_wand2', 'w_wand3', 'w_bom2'],
       6: ['w_demon'],
     };
     const aname = ['a_cloth', 'a_leather', 'a_chain', 'a_plate', 'a_mithril', 'a_dragon'];

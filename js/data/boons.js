@@ -21,22 +21,34 @@ const BOONS = {
   ghost:      { name: '残影',   icon: '👤', desc: '闪避 +4, 闪避成功回复 2 法力', stat: { eva: 4 }, flag: { dodgeMp: 2 } },
   slayer:     { name: '破军',   icon: '⚔️', desc: '对 Boss 伤害 +25%', flag: { bossDmgMul: 1.25 } },
   pyromancer: { name: '烈焰亲和', icon: '🔥', desc: '火球术伤害 +60%', flag: { fireMul: 1.6 } },
+
+  // ---- 诅咒祝福: 高风险高收益 (40% 概率混入三选一) ----
+  devil:     { name: '恶魔契约', icon: '😈', cursed: true, desc: '攻击 +8; 代价: 每层开始中毒 3 回合', stat: { atk: 8 }, flag: { poisonPerFloor: 3 } },
+  blood_pact:{ name: '血誓',     icon: '🩸', cursed: true, desc: '暴击 +25%; 代价: 生命上限 -15%', stat: { crit: 25 }, flag: { hpPct: -0.15 } },
+  titan:     { name: '泰坦之诅', icon: '🗿', cursed: true, desc: '防御 +6; 代价: 闪避 -25', stat: { def: 6, eva: -25 } },
 };
 
 const Boons = {
   def(id) { return BOONS[id]; },
   all() { return Object.keys(BOONS); },
 
-  /** 随机抽 n 个不重复的祝福 id */
+  /** 随机抽 n 个不重复的祝福 id (诅咒卡 40% 概率替换其中一张) */
   sample(rng, n, exclude) {
-    const pool = this.all().filter(id => !(exclude || []).includes(id));
-    rng.shuffle(pool);
-    return pool.slice(0, n);
+    const normal = this.all().filter(id => !(exclude || []).includes(id));
+    rng.shuffle(normal);
+    const picks = normal.slice(0, n);
+    const cursed = Object.keys(BOONS).filter(id => BOONS[id].cursed && !(exclude || []).includes(id));
+    if (cursed.length && picks.length && rng.chance(0.4)) {
+      const slot = rng.int(0, picks.length - 1);
+      const pick = rng.pick(cursed);
+      if (!picks.includes(pick)) picks[slot] = pick;
+    }
+    return picks;
   },
 
   /** 汇总玩家身上所有祝福的属性加成 */
   bonus(p) {
-    const b = { atk: 0, hp: 0, eva: 0, acc: 0, crit: 0, flag: {} };
+    const b = { atk: 0, hp: 0, def: 0, eva: 0, acc: 0, crit: 0, flag: {} };
     if (!p.boons) return b;
     for (const id in p.boons) {
       const d = BOONS[id];
@@ -45,6 +57,7 @@ const Boons = {
       if (d.stat) {
         b.atk += (d.stat.atk || 0) * n;
         b.hp += (d.stat.hp || 0) * n;
+        b.def += (d.stat.def || 0) * n;
         b.eva += (d.stat.eva || 0) * n;
         b.acc += (d.stat.acc || 0) * n;
         b.crit += (d.stat.crit || 0) * n;

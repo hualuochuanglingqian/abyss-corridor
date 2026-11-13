@@ -114,6 +114,14 @@ const Meta = (() => {
     data.records.deepest = Math.max(data.records.deepest, floor);
     data.records.bestScore = Math.max(data.records.bestScore, score);
     if (won) data.records.wins++;
+    // 每日挑战纪录 (按日期归档)
+    if (game.daily) {
+      const d = new Date();
+      const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (!data.daily || data.daily.date !== ymd) data.daily = { date: ymd, bestScore: 0, deepest: 0 };
+      data.daily.bestScore = Math.max(data.daily.bestScore, score);
+      data.daily.deepest = Math.max(data.daily.deepest, floor);
+    }
     // 魂晶结算: 层数 + 击杀 + 通关奖励; 挑战 ×1.5; 魂引天赋 ×1.25
     let shards = Math.round(floor * 3 + p.kills / 2 + (won ? 80 : 0));
     if (game.challenge) shards = Math.round(shards * 1.5);

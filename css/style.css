@@ -275,6 +275,9 @@ body {
   padding: 18px 14px; text-align: center; cursor: pointer; transition: all .15s;
 }
 .boon-card:hover { transform: translateY(-4px); border-color: var(--gold); box-shadow: 0 10px 26px rgba(217,171,74,.22); }
+.boon-card.cursed { border-color: #b04a4a; background: #241318; }
+.boon-card.cursed:hover { border-color: #ff7b72; box-shadow: 0 10px 26px rgba(255,90,70,.22); }
+.boon-card.cursed .bc-name { color: #ff8787; }
 .boon-card .bc-icon { font-size: 36px; }
 .boon-card .bc-name { color: var(--gold); font-weight: bold; margin: 8px 0 6px; font-size: 15px; }
 .boon-card .bc-desc { font-size: 12px; color: var(--text); line-height: 1.7; }

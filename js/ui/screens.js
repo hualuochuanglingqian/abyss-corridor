@@ -20,6 +20,7 @@ const Screens = (() => {
     $('btn-title-codex').addEventListener('click', () => { AudioSys.play('ui'); openCodex('bestiary', 'title'); });
     $('btn-title-talents').addEventListener('click', () => { AudioSys.play('ui'); openTalents(); });
     $('btn-title-challenge').addEventListener('click', () => { AudioSys.play('ui'); openChallenge(); });
+    $('btn-title-daily').addEventListener('click', () => { AudioSys.play('ui'); hideAll(); game.startDaily(); });
     $('btn-talents-close').addEventListener('click', () => { AudioSys.play('ui'); hide('overlay-talents'); game.paused = true; });
     $('btn-challenge-none').addEventListener('click', () => { AudioSys.play('ui'); hideAll(); game.newRun(null); });
 
@@ -181,6 +182,7 @@ const Screens = (() => {
         </div>`).join('') + '</div>';
     } else {
       const r = Meta.data.records;
+      const daily = Meta.data.daily;
       const totalKinds = Object.keys(ENEMIES).length;
       const seenKinds = Object.values(Meta.data.bestiary).filter(n => n > 0).length;
       body.innerHTML = `<table class="rec-table">
@@ -191,6 +193,7 @@ const Screens = (() => {
         <tr><td>累计击杀</td><td>${Util.fmt(r.totalKills)}</td></tr>
         <tr><td>累计开箱</td><td>${Meta.data.chests}</td></tr>
         <tr><td>图鉴收录</td><td>${seenKinds} / ${totalKinds}</td></tr>
+        <tr><td>☀️ 每日挑战</td><td>${daily && daily.date ? `${daily.date} · 最佳 ${Util.fmt(daily.bestScore)} 分 · 最深 ${daily.deepest} 层` : '今日尚未挑战'}</td></tr>
       </table>`;
     }
   }
@@ -223,9 +226,9 @@ const Screens = (() => {
     box.innerHTML = choices.map((id, i) => {
       const d = Boons.def(id);
       if (!d) return '';
-      return `<div class="boon-card" data-idx="${i}">
+      return `<div class="boon-card ${d.cursed ? 'cursed' : ''}" data-idx="${i}">
         <div class="bc-icon">${d.icon}</div>
-        <div class="bc-name">${d.name}</div>
+        <div class="bc-name">${d.cursed ? '⚠ ' : ''}${d.name}${d.cursed ? ' <span style="font-size:10px">诅咒</span>' : ''}</div>
         <div class="bc-desc">${d.desc}</div>
         <div class="bc-key">[ ${i + 1} ]</div>
       </div>`;

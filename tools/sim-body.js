@@ -51,11 +51,11 @@ function simRecalc(p) {
   const b = Items.eqBonus(p.equip);
   const bb = Boons.bonus(p);
   p.atk = p.baseAtk + b.atk + bb.atk;
-  p.def = p.baseDef + b.def;
+  p.def = p.baseDef + b.def + bb.def;
   p.acc = 85 + b.acc + bb.acc;
   p.eva = 5 + b.eva + bb.eva;
   p.crit = 5 + b.crit + bb.crit;
-  p.maxHp = p.baseMaxHp + bb.hp;
+  p.maxHp = Math.max(10, Math.round((p.baseMaxHp + bb.hp) * (1 + (bb.flag.hpPct || 0))));
   p.maxMp = p.baseMaxMp + b.mp;
   p.flags = Object.assign({}, b.flag, bb.flag);
 }
@@ -511,6 +511,28 @@ simLog('\n=== 4c. 新系统检查 (词条/祝福/天赋/精英/伏击) ===');
   const ec2 = Enemies.mk('crab', 7, new RNG('e4'), { chal, elite: true });
   simAssert(eb.ai === 'charger' && eh.ai === 'healer' && ec.def === 5, '新敌人: 定义异常');
   simAssert(ec2.maxHp > ec.maxHp * 2 && ec2.atk > ec.atk && ec2.def === 8, '挑战+精英: 倍率未生效 (防=挑战+2+精英+1)');
+
+  // v2.1: 新武器 / 诅咒祝福 / 每日种子
+  simAssert(ITEMS['w_bow3'].flag && ITEMS['w_bow3'].flag.pierceLine
+    && ITEMS['w_wand3'].flag && ITEMS['w_wand3'].flag.chain === 2
+    && ITEMS['w_xbow1'].sub === 'scatter', 'v2.1 新武器: 定义异常');
+  let cursedSeen = 0;
+  for (let i = 0; i < 60; i++) {
+    const picks = Boons.sample(new RNG('cs' + i), 3);
+    if (picks.some(id => BOONS[id] && BOONS[id].cursed)) cursedSeen++;
+  }
+  simAssert(cursedSeen >= 10 && cursedSeen <= 45, `诅咒: 60 次三选一出现 ${cursedSeen} 次诅咒卡 (期望约 24)`);
+  simLog(`诅咒卡出现率: ${cursedSeen}/60`);
+  const ct = { boons: {}, baseMaxHp: 100, baseMaxMp: 20, baseAtk: 3, baseDef: 0, statuses: [] };
+  Boons.give(ct, 'titan');
+  Boons.give(ct, 'blood_pact');
+  const cbb = Boons.bonus(ct);
+  simAssert(cbb.def === 6 && cbb.eva === -25 && cbb.crit === 25 && cbb.flag.hpPct === -0.15, '诅咒: 属性汇总异常');
+  const d1 = MapGen.generate('DAILY-2026-11-14', 3);
+  const d2 = MapGen.generate('DAILY-2026-11-14', 3);
+  let dailySame = true;
+  for (let i = 0; i < d1.tiles.length; i++) if (d1.tiles[i] !== d2.tiles[i]) { dailySame = false; break; }
+  simAssert(dailySame, '每日种子: 同 seed 两次生成不一致');
   simLog(`精英+挑战岩蟹: HP ${ec.maxHp} → ${ec2.maxHp}, 攻 ${ec.atk} → ${ec2.atk}, 防 ${ec.def} → ${ec2.def}`);
 }
 

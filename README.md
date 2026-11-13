@@ -9,7 +9,7 @@
   <img src="docs/img/02-boon.png" width="32%" alt="祝福三选一">
   <img src="docs/img/03-combat.png" width="32%" alt="战斗实况">
 </p>
-<p align="center"><sub>左：标题画面 · 中：每层祝福三选一 · 右：第一层战斗（v2.0.0 实机截图）</sub></p>
+<p align="center"><sub>左：标题画面 · 中：每层祝福三选一 · 右：第一层战斗（实机截图）</sub></p>
 
 ---
 

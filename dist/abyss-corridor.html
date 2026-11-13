@@ -292,6 +292,9 @@ body {
   padding: 18px 14px; text-align: center; cursor: pointer; transition: all .15s;
 }
 .boon-card:hover { transform: translateY(-4px); border-color: var(--gold); box-shadow: 0 10px 26px rgba(217,171,74,.22); }
+.boon-card.cursed { border-color: #b04a4a; background: #241318; }
+.boon-card.cursed:hover { border-color: #ff7b72; box-shadow: 0 10px 26px rgba(255,90,70,.22); }
+.boon-card.cursed .bc-name { color: #ff8787; }
 .boon-card .bc-icon { font-size: 36px; }
 .boon-card .bc-name { color: var(--gold); font-weight: bold; margin: 8px 0 6px; font-size: 15px; }
 .boon-card .bc-desc { font-size: 12px; color: var(--text); line-height: 1.7; }
@@ -433,6 +436,7 @@ body {
       <button id="btn-new-run" class="mbtn primary">⚔ 新的冒险</button>
       <button id="btn-continue" class="mbtn">▶ 继续上次 (如存档)</button>
       <button id="btn-title-challenge" class="mbtn">🎯 挑战模式</button>
+      <button id="btn-title-daily" class="mbtn">☀️ 每日挑战</button>
       <button id="btn-title-talents" class="mbtn">💎 天赋 · 魂晶</button>
       <button id="btn-title-help" class="mbtn">? 玩法说明</button>
       <button id="btn-title-codex" class="mbtn">📖 图鉴 · 成就 · 纪录</button>
@@ -789,7 +793,7 @@ const Util = {
 'use strict';
 
 const CONFIG = {
-  VERSION: '2.0.0',       // 与 CHANGELOG.md 同步, 标题画面显示
+  VERSION: '2.1.0',       // 与 CHANGELOG.md 同步, 标题画面显示
   TILE: 24,               // 图块像素
   MAP_W: 48,              // 地图宽 (格)
   MAP_H: 30,              // 地图高 (格)
@@ -1040,8 +1044,11 @@ const ITEMS = {
   // ---------------- 武器·远程 ----------------
   w_bow1:  { name: '短弓',     glyph: '🏹', kind: 'weapon', sub: 'bow', range: 5, tier: 2, price: 95,  atk: 4,  crit: 4,  acc: 4, desc: '朝面向方向射出箭矢 (直线 5 格)。' },
   w_bow2:  { name: '猎手长弓', glyph: '🏹', kind: 'weapon', sub: 'bow', range: 6, tier: 4, price: 230, atk: 7,  crit: 6,  acc: 6, desc: '直线弹道, 站得远才安全。' },
+  w_bow3:  { name: '穿云弓',   glyph: '🏹', kind: 'weapon', sub: 'bow', range: 6, tier: 5, price: 310, atk: 6,  crit: 6,  acc: 4, flag: { pierceLine: true }, desc: '箭矢贯穿一整排敌人, 排队送死吧。' },
+  w_xbow1: { name: '散弹弩',   glyph: '🎯', kind: 'weapon', sub: 'scatter', range: 4, tier: 4, price: 250, atk: 3,  crit: 10, acc: 0, desc: '朝面向方向扇形三矢, 贴脸毁灭性。' },
   w_wand1: { name: '学徒法杖', glyph: '🪄', kind: 'weapon', sub: 'wand', range: 6, tier: 2, price: 100, atk: 5,  crit: 4,  acc: 0, desc: '自动锁定最近敌人 (2 法力/发)。' },
   w_wand2: { name: '星辉法杖', glyph: '🪄', kind: 'weapon', sub: 'wand', range: 7, tier: 5, price: 280, atk: 8,  crit: 6,  acc: 0, desc: '更强的追踪魔法弹 (2 法力/发)。' },
+  w_wand3: { name: '连锁法杖', glyph: '🪄', kind: 'weapon', sub: 'wand', range: 6, tier: 5, price: 330, atk: 5,  crit: 4,  acc: 0, flag: { chain: 2 }, desc: '魔法弹在敌人间弹跳两次 (2 法力/发)。' },
   w_bom1:  { name: '回旋刃',   glyph: '🪃', kind: 'weapon', sub: 'bom', range: 4, tier: 3, price: 140, atk: 5,  crit: 5,  acc: 4, desc: '去回双击, 可命中路径上至多 2 个敌人。' },
   w_bom2:  { name: '飞斧',     glyph: '🪃', kind: 'weapon', sub: 'bom', range: 4, tier: 5, price: 290, atk: 8,  crit: 5,  acc: 2, desc: '沉重的去回双击。' },
 
@@ -1279,8 +1286,8 @@ const Items = {
       1: ['w_club'],
       2: ['w_iron', 'w_bow1', 'w_wand1'],
       3: ['w_axe', 'w_bom1'],
-      4: ['w_knight', 'w_bow2'],
-      5: ['w_rune', 'w_wand2', 'w_bom2'],
+      4: ['w_knight', 'w_bow2', 'w_xbow1'],
+      5: ['w_rune', 'w_bow3', 'w_wand2', 'w_wand3', 'w_bom2'],
       6: ['w_demon'],
     };
     const aname = ['a_cloth', 'a_leather', 'a_chain', 'a_plate', 'a_mithril', 'a_dragon'];
@@ -1593,22 +1600,34 @@ const BOONS = {
   ghost:      { name: '残影',   icon: '👤', desc: '闪避 +4, 闪避成功回复 2 法力', stat: { eva: 4 }, flag: { dodgeMp: 2 } },
   slayer:     { name: '破军',   icon: '⚔️', desc: '对 Boss 伤害 +25%', flag: { bossDmgMul: 1.25 } },
   pyromancer: { name: '烈焰亲和', icon: '🔥', desc: '火球术伤害 +60%', flag: { fireMul: 1.6 } },
+
+  // ---- 诅咒祝福: 高风险高收益 (40% 概率混入三选一) ----
+  devil:     { name: '恶魔契约', icon: '😈', cursed: true, desc: '攻击 +8; 代价: 每层开始中毒 3 回合', stat: { atk: 8 }, flag: { poisonPerFloor: 3 } },
+  blood_pact:{ name: '血誓',     icon: '🩸', cursed: true, desc: '暴击 +25%; 代价: 生命上限 -15%', stat: { crit: 25 }, flag: { hpPct: -0.15 } },
+  titan:     { name: '泰坦之诅', icon: '🗿', cursed: true, desc: '防御 +6; 代价: 闪避 -25', stat: { def: 6, eva: -25 } },
 };
 
 const Boons = {
   def(id) { return BOONS[id]; },
   all() { return Object.keys(BOONS); },
 
-  /** 随机抽 n 个不重复的祝福 id */
+  /** 随机抽 n 个不重复的祝福 id (诅咒卡 40% 概率替换其中一张) */
   sample(rng, n, exclude) {
-    const pool = this.all().filter(id => !(exclude || []).includes(id));
-    rng.shuffle(pool);
-    return pool.slice(0, n);
+    const normal = this.all().filter(id => !(exclude || []).includes(id));
+    rng.shuffle(normal);
+    const picks = normal.slice(0, n);
+    const cursed = Object.keys(BOONS).filter(id => BOONS[id].cursed && !(exclude || []).includes(id));
+    if (cursed.length && picks.length && rng.chance(0.4)) {
+      const slot = rng.int(0, picks.length - 1);
+      const pick = rng.pick(cursed);
+      if (!picks.includes(pick)) picks[slot] = pick;
+    }
+    return picks;
   },
 
   /** 汇总玩家身上所有祝福的属性加成 */
   bonus(p) {
-    const b = { atk: 0, hp: 0, eva: 0, acc: 0, crit: 0, flag: {} };
+    const b = { atk: 0, hp: 0, def: 0, eva: 0, acc: 0, crit: 0, flag: {} };
     if (!p.boons) return b;
     for (const id in p.boons) {
       const d = BOONS[id];
@@ -1617,6 +1636,7 @@ const Boons = {
       if (d.stat) {
         b.atk += (d.stat.atk || 0) * n;
         b.hp += (d.stat.hp || 0) * n;
+        b.def += (d.stat.def || 0) * n;
         b.eva += (d.stat.eva || 0) * n;
         b.acc += (d.stat.acc || 0) * n;
         b.crit += (d.stat.crit || 0) * n;
@@ -2612,17 +2632,21 @@ const Combat = (() => {
   }
 
   /**
-   * 玩家远程攻击 (弓/法杖/回旋刃)。
-   * targets: 敌人数组; sub: 'bow'|'wand'|'bom'
+   * 玩家远程攻击 (弓/弩/法杖/回旋刃)。
+   * targets: 数组, 元素为敌人 或 {t, mult}; sub: 'bow'|'wand'|'bom'|'scatter'
    */
   function playerRanged(game, weapon, targets, sub) {
     const p = game.player;
     const rng = game.rng;
     let fired = false;
-    for (const t of targets) {
+    let lastHit = null;
+    for (const entry of targets) {
+      const t = entry && entry.t ? entry.t : entry;
+      const mult = entry && entry.mult ? entry.mult : 1;
       if (!t || t.hp <= 0) continue;
       fired = true;
-      const col = sub === 'wand' ? '#b197fc' : (sub === 'bom' ? '#c9c4b4' : '#d9c27a');
+      lastHit = t;
+      const col = sub === 'wand' ? '#b197fc' : (sub === 'bom' ? '#c9c4b4' : (sub === 'scatter' ? '#ffd43b' : '#d9c27a'));
       FX.projectile(p.x, p.y, t.x, t.y, col);
       AudioSys.play(sub === 'wand' ? 'magic' : 'bow');
 
@@ -2631,13 +2655,13 @@ const Combat = (() => {
         FX.float(t.x, t.y, '闪避', '#9aa5b5');
         continue;
       }
-      const r = dealPlayerHit(game, t, 1);
-      game.msg(`${sub === 'wand' ? '🪄 魔法弹' : (sub === 'bom' ? '🪃 回旋刃' : '🏹 箭矢')}击中 ${t.name} <b>(-${r.dmg})</b>`, 'dmg');
+      const r = dealPlayerHit(game, t, mult);
+      const label = sub === 'wand' ? '🪄 魔法弹' : (sub === 'bom' ? '🪃 回旋刃' : (sub === 'scatter' ? '🎯 弩矢' : '🏹 箭矢'));
+      game.msg(`${label}击中 ${t.name} <b>(-${r.dmg})</b>`, 'dmg');
     }
     // 回旋刃去回特效
-    if (fired && sub === 'bom' && targets.length) {
-      const last = targets[targets.length - 1];
-      FX.projectile(last.x, last.y, p.x, p.y, '#c9c4b4');
+    if (fired && sub === 'bom' && lastHit) {
+      FX.projectile(lastHit.x, lastHit.y, p.x, p.y, '#c9c4b4');
     }
     return fired;
   }
@@ -4227,6 +4251,14 @@ const Meta = (() => {
     data.records.deepest = Math.max(data.records.deepest, floor);
     data.records.bestScore = Math.max(data.records.bestScore, score);
     if (won) data.records.wins++;
+    // 每日挑战纪录 (按日期归档)
+    if (game.daily) {
+      const d = new Date();
+      const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (!data.daily || data.daily.date !== ymd) data.daily = { date: ymd, bestScore: 0, deepest: 0 };
+      data.daily.bestScore = Math.max(data.daily.bestScore, score);
+      data.daily.deepest = Math.max(data.daily.deepest, floor);
+    }
     // 魂晶结算: 层数 + 击杀 + 通关奖励; 挑战 ×1.5; 魂引天赋 ×1.25
     let shards = Math.round(floor * 3 + p.kills / 2 + (won ? 80 : 0));
     if (game.challenge) shards = Math.round(shards * 1.5);
@@ -5374,6 +5406,7 @@ const Screens = (() => {
     $('btn-title-codex').addEventListener('click', () => { AudioSys.play('ui'); openCodex('bestiary', 'title'); });
     $('btn-title-talents').addEventListener('click', () => { AudioSys.play('ui'); openTalents(); });
     $('btn-title-challenge').addEventListener('click', () => { AudioSys.play('ui'); openChallenge(); });
+    $('btn-title-daily').addEventListener('click', () => { AudioSys.play('ui'); hideAll(); game.startDaily(); });
     $('btn-talents-close').addEventListener('click', () => { AudioSys.play('ui'); hide('overlay-talents'); game.paused = true; });
     $('btn-challenge-none').addEventListener('click', () => { AudioSys.play('ui'); hideAll(); game.newRun(null); });
 
@@ -5535,6 +5568,7 @@ const Screens = (() => {
         </div>`).join('') + '</div>';
     } else {
       const r = Meta.data.records;
+      const daily = Meta.data.daily;
       const totalKinds = Object.keys(ENEMIES).length;
       const seenKinds = Object.values(Meta.data.bestiary).filter(n => n > 0).length;
       body.innerHTML = `<table class="rec-table">
@@ -5545,6 +5579,7 @@ const Screens = (() => {
         <tr><td>累计击杀</td><td>${Util.fmt(r.totalKills)}</td></tr>
         <tr><td>累计开箱</td><td>${Meta.data.chests}</td></tr>
         <tr><td>图鉴收录</td><td>${seenKinds} / ${totalKinds}</td></tr>
+        <tr><td>☀️ 每日挑战</td><td>${daily && daily.date ? `${daily.date} · 最佳 ${Util.fmt(daily.bestScore)} 分 · 最深 ${daily.deepest} 层` : '今日尚未挑战'}</td></tr>
       </table>`;
     }
   }
@@ -5577,9 +5612,9 @@ const Screens = (() => {
     box.innerHTML = choices.map((id, i) => {
       const d = Boons.def(id);
       if (!d) return '';
-      return `<div class="boon-card" data-idx="${i}">
+      return `<div class="boon-card ${d.cursed ? 'cursed' : ''}" data-idx="${i}">
         <div class="bc-icon">${d.icon}</div>
-        <div class="bc-name">${d.name}</div>
+        <div class="bc-name">${d.cursed ? '⚠ ' : ''}${d.name}${d.cursed ? ' <span style="font-size:10px">诅咒</span>' : ''}</div>
         <div class="bc-desc">${d.desc}</div>
         <div class="bc-key">[ ${i + 1} ]</div>
       </div>`;
@@ -5806,11 +5841,13 @@ const Game = {
   },
 
   // ---------------- 开局 / 读档 ----------------
-  newRun(challenge) {
-    const seed = 'ABYSS-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  newRun(challenge, opts) {
+    opts = opts || {};
+    const seed = opts.seed || ('ABYSS-' + Math.random().toString(36).slice(2, 8).toUpperCase());
     this.seed = seed;
     this.rng = new RNG(seed);
     this.challenge = challenge || null;
+    this.daily = !!opts.daily;
     this.floor = 1;
     this.turn = 0;
     this.endless = false;
@@ -5868,6 +5905,17 @@ const Game = {
       this.mp = Math.min(this.maxMp, this.mp + n);
       if (this.mp > before) FX.float(this.x, this.y - 0.3, '+MP', '#4dabf7');
     };
+  },
+
+  /** 每日挑战: 日期决定种子与因子, 全世界同一天同一张地牢 */
+  startDaily() {
+    const d = new Date();
+    const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const rng = new RNG('DAILY-' + ymd);
+    const factor = CONFIG.CHALLENGES[rng.int(0, CONFIG.CHALLENGES.length - 1)];
+    this.newRun(factor, { seed: 'DAILY-' + ymd, daily: true });
+    this.msg(`☀️ <b>每日挑战 ${ymd}</b> — 今日因子: ${factor.icon} ${factor.name}`, 'magic');
+    HUD.update(this);
   },
 
   continueRun() {
@@ -5931,13 +5979,13 @@ const Game = {
     const b = Items.eqBonus(p.equip);
     const bb = Boons.bonus(p);
     p.atk = p.baseAtk + b.atk + bb.atk;
-    p.def = p.baseDef + b.def;
+    p.def = p.baseDef + b.def + bb.def;
     p.acc = 85 + b.acc + bb.acc;
     p.eva = 5 + b.eva + bb.eva;
     p.crit = 5 + b.crit + bb.crit;
-    p.maxHp = p.baseMaxHp + bb.hp;
+    p.maxHp = Math.max(10, Math.round((p.baseMaxHp + bb.hp) * (1 + (bb.flag.hpPct || 0))));
     p.maxMp = p.baseMaxMp + b.mp;
-    p.flags = b.flag || {};
+    p.flags = Object.assign({}, b.flag, bb.flag);
     // 双持成就
     if (p.equip.weapon && p.equip.weapon2) Meta.unlock('dual_wield');
     if (!isFinite(num(p.hp)) || p.hp <= 0) p.hp = p.maxHp;
@@ -5982,6 +6030,11 @@ const Game = {
     FOV.compute(this.level, p.x, p.y, r);
     // 铁壁祝福: 每层护盾
     if (p.flags && p.flags.floorShield) Status.add(p, 'shield', 99, p.flags.floorShield);
+    // 恶魔契约诅咒: 每层开始中毒
+    if (p.flags && p.flags.poisonPerFloor) {
+      Status.add(p, 'poison', 3, 2);
+      this.msg('😈 恶魔契约生效 — 毒素在血液里苏醒…', 'warn');
+    }
     // 探图者天赋
     if (Meta.data.talents && Meta.data.talents.t_map) this.revealPartial(0.3);
     if (!isFresh) {
@@ -6182,7 +6235,41 @@ const Game = {
       if (!aligned) return false;
       if (p.mp < 2) { HUD.toast('💧 法力不足 (法杖需 2 法力/发)'); AudioSys.play('error'); return false; }
       p.mp -= 2;
-      Combat.playerRanged(this, w, [aligned], 'wand');
+      // 连锁法杖: 魔法弹在敌人间弹跳
+      const entries = [{ t: aligned, mult: 1 }];
+      if (d.flag && d.flag.chain) {
+        let last = aligned, mult = 1;
+        const hitSet = new Set([aligned]);
+        for (let j = 0; j < d.flag.chain; j++) {
+          mult *= 0.7;
+          const next = vis
+            .filter(e => e.hp > 0 && !hitSet.has(e) && Util.dist(last.x, last.y, e.x, e.y) <= 4)
+            .sort((a, b) => Util.dist2(last.x, last.y, a.x, a.y) - Util.dist2(last.x, last.y, b.x, b.y))[0];
+          if (!next) break;
+          hitSet.add(next);
+          entries.push({ t: next, mult });
+          last = next;
+        }
+      }
+      Combat.playerRanged(this, w, entries, 'wand');
+      return true;
+    }
+    if (d.sub === 'scatter') {
+      // 散弹弩: 正交方向触发扇形三矢 (本方向 + 两侧 45°)
+      if (dx !== 0 && dy !== 0) return false;
+      const lines = (dx !== 0) ? [[dx, 0], [dx, -1], [dx, 1]] : [[0, dy], [1, dy], [-1, dy]];
+      const entries = [];
+      for (const [lx, ly] of lines) {
+        let x = p.x, y = p.y;
+        for (let i = 0; i < d.range; i++) {
+          x += lx; y += ly;
+          if (!L.inBounds(x, y) || L.blocksSight(x, y)) break;
+          const e = L.enemyAt(x, y);
+          if (e) { entries.push({ t: e, mult: 1 }); break; }
+        }
+      }
+      if (!entries.length) return false;
+      Combat.playerRanged(this, w, entries, 'scatter');
       return true;
     }
     // bow / bom: 正交直线
@@ -6194,8 +6281,11 @@ const Game = {
       if (!L.inBounds(x, y) || L.blocksSight(x, y)) break;
       const e = L.enemyAt(x, y);
       if (e) {
-        hits.push(e);
-        if (d.sub === 'bow' || hits.length >= 2) break;
+        hits.push({ t: e, mult: 1 });
+        // 穿云弓贯穿一整排; 回旋刃至多 2 个; 普通弓命中第一个
+        if (d.flag && d.flag.pierceLine) { if (hits.length >= 4) break; }
+        else if (d.sub === 'bom') { if (hits.length >= 2) break; }
+        else break;
       }
     }
     if (!hits.length) return false;

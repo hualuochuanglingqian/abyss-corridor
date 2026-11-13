@@ -102,17 +102,21 @@ const Combat = (() => {
   }
 
   /**
-   * 玩家远程攻击 (弓/法杖/回旋刃)。
-   * targets: 敌人数组; sub: 'bow'|'wand'|'bom'
+   * 玩家远程攻击 (弓/弩/法杖/回旋刃)。
+   * targets: 数组, 元素为敌人 或 {t, mult}; sub: 'bow'|'wand'|'bom'|'scatter'
    */
   function playerRanged(game, weapon, targets, sub) {
     const p = game.player;
     const rng = game.rng;
     let fired = false;
-    for (const t of targets) {
+    let lastHit = null;
+    for (const entry of targets) {
+      const t = entry && entry.t ? entry.t : entry;
+      const mult = entry && entry.mult ? entry.mult : 1;
       if (!t || t.hp <= 0) continue;
       fired = true;
-      const col = sub === 'wand' ? '#b197fc' : (sub === 'bom' ? '#c9c4b4' : '#d9c27a');
+      lastHit = t;
+      const col = sub === 'wand' ? '#b197fc' : (sub === 'bom' ? '#c9c4b4' : (sub === 'scatter' ? '#ffd43b' : '#d9c27a'));
       FX.projectile(p.x, p.y, t.x, t.y, col);
       AudioSys.play(sub === 'wand' ? 'magic' : 'bow');
 
@@ -121,13 +125,13 @@ const Combat = (() => {
         FX.float(t.x, t.y, '闪避', '#9aa5b5');
         continue;
       }
-      const r = dealPlayerHit(game, t, 1);
-      game.msg(`${sub === 'wand' ? '🪄 魔法弹' : (sub === 'bom' ? '🪃 回旋刃' : '🏹 箭矢')}击中 ${t.name} <b>(-${r.dmg})</b>`, 'dmg');
+      const r = dealPlayerHit(game, t, mult);
+      const label = sub === 'wand' ? '🪄 魔法弹' : (sub === 'bom' ? '🪃 回旋刃' : (sub === 'scatter' ? '🎯 弩矢' : '🏹 箭矢'));
+      game.msg(`${label}击中 ${t.name} <b>(-${r.dmg})</b>`, 'dmg');
     }
     // 回旋刃去回特效
-    if (fired && sub === 'bom' && targets.length) {
-      const last = targets[targets.length - 1];
-      FX.projectile(last.x, last.y, p.x, p.y, '#c9c4b4');
+    if (fired && sub === 'bom' && lastHit) {
+      FX.projectile(lastHit.x, lastHit.y, p.x, p.y, '#c9c4b4');
     }
     return fired;
   }
