@@ -589,18 +589,18 @@ const Render = (() => {
       drawEmoji(def.glyph, px, py - 1, now, 0.84);
       if (it.price) {
         ctx.save();
-        ctx.font = `bold 9px "Microsoft YaHei", sans-serif`;
+        ctx.font = `bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(px - 15, py + TS * 0.28, 30, 10);
+        ctx.fillRect(px - 21, py + TS * 0.28, 42, 12);
         ctx.fillStyle = PALETTE.gold;
         ctx.fillText('💰' + it.price, px, py + TS * 0.28);
         ctx.restore();
       }
       if (it.count > 1) {
         ctx.save();
-        ctx.font = 'bold 10px "Microsoft YaHei", sans-serif';
+        ctx.font = 'bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif';
         ctx.textAlign = 'right';
         ctx.fillStyle = '#fff';
         ctx.fillText('×' + it.count, px + TS * 0.42, py + TS * 0.42);
@@ -758,7 +758,7 @@ const Render = (() => {
         const nextDmg = e.ranged
           ? Math.max(1, Math.round((e.ranged.dmg || e.atk) - Math.floor(pl.def / 2)))
           : Math.max(1, Math.round(Status.atkOf(e) - pl.def));
-        ctx.font = `bold ${Math.round(TS * 0.42)}px "Microsoft YaHei", sans-serif`;
+        ctx.font = `bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const label = '⚔' + nextDmg;
@@ -846,7 +846,7 @@ const Render = (() => {
     g.addColorStop(1, '#a02a2a');
     ctx.fillStyle = g;
     ctx.fillRect(bx + 2, by + 2, (bw - 4) * frac, bh - 4);
-    ctx.font = 'bold 12px "Microsoft YaHei", sans-serif';
+    ctx.font = 'bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
@@ -916,7 +916,7 @@ const Render = (() => {
     ctx.save();
     ctx.globalAlpha = Util.clamp(a, 0, 1);
     ctx.textAlign = 'center';
-    ctx.font = 'bold 26px "Microsoft YaHei", sans-serif';
+    ctx.font = 'bold 24px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.fillRect(0, by, cv.width, 58);
     ctx.fillStyle = PALETTE.gold;
@@ -979,7 +979,7 @@ const Render = (() => {
     }
     if (!lines) return;
     ctx.save();
-    ctx.font = '11px "Microsoft YaHei", sans-serif';
+    ctx.font = '12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif';
     let wmax = 0;
     for (const ln of lines) wmax = Math.max(wmax, ctx.measureText(ln).width);
     const bw = wmax + 16, bh = lines.length * 15 + 10;

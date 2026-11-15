@@ -262,7 +262,9 @@ const FX = (() => {
       if (f.emoji) {
         ctx.font = `${Math.round(TS * 1.2)}px "Segoe UI Emoji", sans-serif`;
       } else {
-        ctx.font = `bold ${Math.round(TS * (f.big ? 1.05 : 0.82))}px "Microsoft YaHei", sans-serif`;
+        ctx.font = f.big
+          ? `bold 24px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif`
+          : `bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif`;
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0,0,0,.75)';
         ctx.strokeText(f.text, px, py);

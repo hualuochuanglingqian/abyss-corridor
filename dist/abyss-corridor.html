@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>暗渊回廊 · Abyss Corridor</title>
+<link rel="preload" href="fonts/fusion-pixel-12px.woff2" as="font" type="font/woff2" crossorigin>
 <script>
 // 页面级错误收集 (供自动化测试断言零报错)
 window.__errors = [];
@@ -15,14 +16,24 @@ window.addEventListener('unhandledrejection', function (e) {
 });
 </script>
 <style>
-/* ============ 《暗渊回廊》样式 ============ */
+/* ============ 《暗渊回廊》样式 — 像素风重制版 ============ */
+/* 字体: Fusion Pixel 12px (OFL, https://github.com/TakWolf/fusion-pixel-font) */
+@font-face {
+  font-family: 'Fusion Pixel 12px';
+  src: url('../fonts/fusion-pixel-12px.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #0a0d13;
   --panel: #131924;
   --panel2: #1a2231;
-  --border: #2a3547;
+  --border: #3a475c;
+  --border-strong: #55688a;
   --text: #ccd4de;
-  --dim: #7d8797;
+  --dim: #8b96a8;
   --gold: #d9ab4a;
   --gold-dim: #8a6d2e;
   --hp: #e5484d;
@@ -30,16 +41,19 @@ window.addEventListener('unhandledrejection', function (e) {
   --xp: #8fc94b;
   --danger: #ff7b72;
   --good: #6fd07a;
-  --radius: 10px;
+  --radius: 0px;
+  --fs: 12px;               /* 像素字体基准字号 (12 的倍数最清晰) */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
   background: radial-gradient(1200px 800px at 50% -200px, #10141d 0%, var(--bg) 60%);
   color: var(--text);
-  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-family: 'Fusion Pixel 12px', 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-size: var(--fs);
   overflow: hidden;
   user-select: none;
+  image-rendering: pixelated;
 }
 #app { display: flex; height: 100vh; padding: 8px; gap: 8px; }
 
@@ -76,6 +90,16 @@ body {
   cursor: crosshair;
 }
 
+/* CRT 扫描线 + 暗角 (盖在画布上, 不挡操作) */
+#canvas-wrap::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.42) 100%);
+}
+
 #toast {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(6px);
   background: rgba(10, 13, 19, .92); border: 1px solid var(--gold-dim); color: var(--gold);
@@ -87,7 +111,7 @@ body {
 
 /* ---------- 侧栏 ---------- */
 #sidebar {
-  width: 312px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;
+  width: 312px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px;
   overflow-y: auto; min-height: 0;
 }
 #sidebar::-webkit-scrollbar { width: 6px; }
@@ -95,7 +119,7 @@ body {
 
 .panel {
   background: var(--panel); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 8px 10px;
+  border-radius: var(--radius); padding: 5px 8px;
 }
 .panel-title {
   font-size: 11px; color: var(--dim); letter-spacing: 2px; margin-bottom: 5px;
@@ -108,13 +132,13 @@ body {
 /* 状态面板 */
 #st-name { color: var(--text); font-size: 14px; font-weight: bold; letter-spacing: 0; text-transform: none; }
 .lv-chip { background: var(--gold-dim); color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 11px; }
-.bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
 .bar-label { width: 26px; font-size: 11px; color: var(--dim); flex-shrink: 0; }
-.bar { position: relative; flex: 1; height: 17px; background: #0d1117; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.bar { position: relative; flex: 1; height: 15px; background: #0d1117; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
 .bar-fill { height: 100%; width: 100%; border-radius: 9px; transition: width .18s ease-out; }
-.bar.hp .bar-fill { background: linear-gradient(180deg, #ff6b6b, #c92a2a); }
-.bar.mp .bar-fill { background: linear-gradient(180deg, #74c0fc, #1971c2); }
-.bar.xp .bar-fill { background: linear-gradient(180deg, #b2f2bb, #2f9e44); }
+.bar.hp .bar-fill { background: #e5484d; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.28); }
+.bar.mp .bar-fill { background: #3f8fe0; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.28); }
+.bar.xp .bar-fill { background: #8fc94b; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.28); }
 .bar-text {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-size: 11px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.8); font-weight: bold;
@@ -122,7 +146,7 @@ body {
 .status-icons { display: flex; gap: 4px; flex-wrap: wrap; min-height: 0; margin-bottom: 4px; }
 .status-icons:empty { margin: 0; }
 .st-icon { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--border); }
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px 6px; margin-top: 4px; }
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px 6px; margin-top: 2px; }
 .sg { font-size: 11.5px; color: var(--dim); }
 .sg b { color: var(--text); font-size: 12.5px; }
 
@@ -135,9 +159,9 @@ body {
 .eq-sub { font-size: 10.5px; color: var(--dim); }
 
 /* 背包 */
-#inv-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+#inv-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
 .inv-slot {
-  aspect-ratio: 1; background: var(--panel2); border: 1px solid var(--border); border-radius: 7px;
+  height: 34px; aspect-ratio: auto; background: var(--panel2); border: 1px solid var(--border); border-radius: 7px;
   display: flex; align-items: center; justify-content: center; font-size: 17px;
   cursor: pointer; transition: all .1s; position: relative;
 }
@@ -153,9 +177,9 @@ body {
 }
 
 /* 技能 */
-#skill-list { display: flex; flex-direction: column; gap: 3px; }
+#skill-list { display: flex; flex-direction: column; gap: 2px; }
 .skill-row {
-  display: flex; align-items: center; gap: 7px; padding: 2px 7px;
+  display: flex; align-items: center; gap: 6px; padding: 1px 6px;
   background: var(--panel2); border: 1px solid var(--border); border-radius: 7px;
   cursor: pointer; transition: all .1s; font-size: 12px;
 }
@@ -171,7 +195,7 @@ body {
 .skill-desc { font-size: 9.5px; color: var(--dim); }
 
 /* 日志 */
-#log-panel { flex: 1; min-height: 84px; display: flex; flex-direction: column; }
+#log-panel { flex: 1; min-height: 56px; display: flex; flex-direction: column; }
 #log { flex: 1; overflow-y: auto; list-style: none; font-size: 11.5px; line-height: 1.45; }
 #log::-webkit-scrollbar { width: 6px; }
 #log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -359,6 +383,50 @@ body {
   #sidebar { width: 100%; }
   body { overflow: auto; }
 }
+
+/* ============ 像素风皮肤 (全局覆盖层, 保持零依赖) ============ */
+/* 像素 UI 无圆角 */
+.panel, .ov-box, .mbtn, .tbtn, .inv-slot, .skill-row, .st-icon, .boon-chip, .boon-card,
+.challenge-card, .talent-row, #dialog-box, #toast, .ds-item, .cx-card, .ach-card,
+.bar, .equip-row, #topbar, #canvas-wrap, .ctab, .tl-buy, .cc-start, .key {
+  border-radius: 0 !important;
+}
+
+/* 像素面板: 2px 描边 + 上亮下暗斜面 + 硬投影 */
+.panel, .ov-box, #dialog-box {
+  border: 2px solid var(--border-strong);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.05), inset 0 -2px 0 rgba(0, 0, 0, 0.45), 4px 4px 0 rgba(0, 0, 0, 0.4);
+}
+.inv-slot, .skill-row, .boon-card, .challenge-card, .talent-row, .ds-item, .cx-card, .ach-card, .ctab {
+  border: 2px solid var(--border);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.04), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
+}
+.mbtn, .tbtn { border: 2px solid var(--border-strong); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45); }
+.mbtn:active, .tbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45); }
+
+/* 字号纪律: 像素字体在 12/24px 最清晰 */
+body { font-size: 12px; }
+.panel-title, .panel-hint, .eq-sub, .skill-desc, .sg, .cx-detail, .ach-desc, .tl-desc, .bc-desc,
+.rec-table, .keys td, #dialog-text, #toast, .cc-desc, .st-icon, .boon-chip, #log,
+.game-sub, .title-hint, .title-record, #dialog-name, #dialog-hint, .ov-title,
+.cx-name, .ach-name, .tl-name, .tl-cost, .bc-name, .eq-name, .eq-sub, .eq-sub2,
+.bar-label, .bar-text, .tb-chip, .st-name, .death-cause, .win-sub, .cc-name,
+.help-cols, .bc-key, .tl-lv, .skill-mp, .lv-chip, .stats-grid, .qty {
+  font-size: 12px;
+}
+#st-name, .eq-name, .skill-name, .cx-name { font-size: 12px; }
+#tb-floor { font-size: 12px; }
+.game-logo { font-size: 48px; letter-spacing: 10px; }
+.death-title, .win-title { font-size: 36px; letter-spacing: 6px; }
+.ov-title { font-size: 24px; }
+.ds-v { font-size: 24px; }
+.mbtn { font-size: 12px; }
+.game-sub { font-size: 12px; }
+
+/* 滚动条: 方形像素 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border: 2px solid #0d1117; }
 
 </style>
 </head>
@@ -3944,7 +4012,9 @@ const FX = (() => {
       if (f.emoji) {
         ctx.font = `${Math.round(TS * 1.2)}px "Segoe UI Emoji", sans-serif`;
       } else {
-        ctx.font = `bold ${Math.round(TS * (f.big ? 1.05 : 0.82))}px "Microsoft YaHei", sans-serif`;
+        ctx.font = f.big
+          ? `bold 24px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif`
+          : `bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif`;
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0,0,0,.75)';
         ctx.strokeText(f.text, px, py);
@@ -5177,18 +5247,18 @@ const Render = (() => {
       drawEmoji(def.glyph, px, py - 1, now, 0.84);
       if (it.price) {
         ctx.save();
-        ctx.font = `bold 9px "Microsoft YaHei", sans-serif`;
+        ctx.font = `bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(px - 15, py + TS * 0.28, 30, 10);
+        ctx.fillRect(px - 21, py + TS * 0.28, 42, 12);
         ctx.fillStyle = PALETTE.gold;
         ctx.fillText('💰' + it.price, px, py + TS * 0.28);
         ctx.restore();
       }
       if (it.count > 1) {
         ctx.save();
-        ctx.font = 'bold 10px "Microsoft YaHei", sans-serif';
+        ctx.font = 'bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif';
         ctx.textAlign = 'right';
         ctx.fillStyle = '#fff';
         ctx.fillText('×' + it.count, px + TS * 0.42, py + TS * 0.42);
@@ -5346,7 +5416,7 @@ const Render = (() => {
         const nextDmg = e.ranged
           ? Math.max(1, Math.round((e.ranged.dmg || e.atk) - Math.floor(pl.def / 2)))
           : Math.max(1, Math.round(Status.atkOf(e) - pl.def));
-        ctx.font = `bold ${Math.round(TS * 0.42)}px "Microsoft YaHei", sans-serif`;
+        ctx.font = `bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const label = '⚔' + nextDmg;
@@ -5434,7 +5504,7 @@ const Render = (() => {
     g.addColorStop(1, '#a02a2a');
     ctx.fillStyle = g;
     ctx.fillRect(bx + 2, by + 2, (bw - 4) * frac, bh - 4);
-    ctx.font = 'bold 12px "Microsoft YaHei", sans-serif';
+    ctx.font = 'bold 12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
@@ -5504,7 +5574,7 @@ const Render = (() => {
     ctx.save();
     ctx.globalAlpha = Util.clamp(a, 0, 1);
     ctx.textAlign = 'center';
-    ctx.font = 'bold 26px "Microsoft YaHei", sans-serif';
+    ctx.font = 'bold 24px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.fillRect(0, by, cv.width, 58);
     ctx.fillStyle = PALETTE.gold;
@@ -5567,7 +5637,7 @@ const Render = (() => {
     }
     if (!lines) return;
     ctx.save();
-    ctx.font = '11px "Microsoft YaHei", sans-serif';
+    ctx.font = '12px "Fusion Pixel 12px", "Microsoft YaHei", sans-serif';
     let wmax = 0;
     for (const ln of lines) wmax = Math.max(wmax, ctx.measureText(ln).width);
     const bw = wmax + 16, bh = lines.length * 15 + 10;
