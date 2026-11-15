@@ -17,6 +17,7 @@ const ACHIEVEMENTS = [
   { id: 'skill_first',  name: '初窥魔法',     icon: '✨', desc: '第一次释放技能' },
   { id: 'chest_5',      name: '开箱狂人',     icon: '📦', desc: '累计打开 5 个宝箱' },
   { id: 'endless_20',   name: '无尽旅人',     icon: '🌀', desc: '抵达第 20 层' },
+  { id: 'rescue',       name: '救死扶伤',     icon: '🤝', desc: '救出一位被困的旅者' },
   { id: 'elite_first',  name: '精英猎手',     icon: '👑', desc: '击败一只精英怪' },
   { id: 'ambush_clear', name: '关门打狗',     icon: '🚪', desc: '清剿一处伏击房' },
   { id: 'dual_wield',   name: '双持大师',     icon: '🖖', desc: '同时装备两把武器' },

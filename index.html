@@ -226,6 +226,17 @@ window.addEventListener('unhandledrejection', function (e) {
   </div>
 </div>
 
+<div id="overlay-dialog" class="overlay dialog-layer">
+  <div id="dialog-box">
+    <div id="dialog-name"></div>
+    <div id="dialog-text"></div>
+    <div id="dialog-footer">
+      <span id="dialog-hint">点击 / Enter 继续 ▸</span>
+      <button id="btn-dialog-skip" class="tbtn">跳过全部 ⏭</button>
+    </div>
+  </div>
+</div>
+
 <div id="overlay-menu" class="overlay">
   <div class="ov-box menu-box">
     <div class="ov-title">暂停</div>
@@ -250,6 +261,7 @@ window.addEventListener('unhandledrejection', function (e) {
 <script src="js/data/floors.js"></script>
 <script src="js/data/boons.js"></script>
 <script src="js/data/talents.js"></script>
+<script src="js/data/story.js"></script>
 <script src="js/systems/mapgen.js"></script>
 <script src="js/systems/fov.js"></script>
 <script src="js/systems/pathing.js"></script>

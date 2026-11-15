@@ -263,6 +263,22 @@ body {
 .rec-table td { padding: 7px 10px; border-bottom: 1px dashed #232d40; }
 .rec-table td:last-child { text-align: right; color: var(--gold); }
 
+/* 对话系统 */
+.dialog-layer { align-items: flex-end; background: rgba(5, 7, 11, 0.45); }
+#dialog-box {
+  width: min(680px, 92vw); margin-bottom: 7vh;
+  background: linear-gradient(180deg, #171e2b, #10141d);
+  border: 1px solid var(--gold-dim); border-radius: 12px;
+  padding: 16px 20px 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+  cursor: pointer; animation: popIn 0.18s ease-out;
+}
+#dialog-name { color: var(--gold); font-size: 14px; font-weight: bold; margin-bottom: 8px; letter-spacing: 1px; }
+#dialog-text { color: var(--text); font-size: 14px; line-height: 1.9; min-height: 54px; }
+#dialog-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+#dialog-hint { font-size: 11px; color: var(--dim); }
+#log li.log-whisper { color: #a78bfa; font-style: italic; }
+
 /* 响应式 */
 .hidden { display: none !important; }
 

@@ -122,6 +122,16 @@ const Game = {
     this.msg('提示: WASD/方向键移动, 撞击敌人攻击; 按 <b>H</b> 查看完整操作。', 'sys');
     this.saveRun(false);
     HUD.update(this);
+    // 开场剧情: 首次冒险播楔子, 之后直接进入祝福选择
+    if (!Meta.data.sawIntro) {
+      Meta.data.sawIntro = true;
+      Meta.save();
+      this.showStory(STORY.intro, () => {
+        if (this.state === 'play') this.offerBoons();
+      });
+    } else if (this.state === 'play') {
+      this.offerBoons();
+    }
   },
 
   makePlayer() {
@@ -278,7 +288,9 @@ const Game = {
     const theme = this.level.theme;
     this.banner = {
       text: `第 ${floor} 层 · ${theme.name}` + (this.challenge ? ` · ${this.challenge.icon}${this.challenge.name}` : ''),
-      sub: theme.boss ? '⚠ 空气变得灼热沉重…有强大的存在盘踞于此' : (this.challenge ? this.challenge.desc : ''),
+      sub: theme.boss
+        ? '⚠ 空气变得灼热沉重…有强大的存在盘踞于此'
+        : (this.challenge ? `⚠ ${this.challenge.desc}` : STORY.floorLore[(floor - 1) % STORY.floorLore.length]),
       t: performance.now(),
     };
     const r = this.fovRadius();
@@ -298,8 +310,14 @@ const Game = {
     }
     HUD.update(this);
     Meta.check(this);
-    // 每层祝福三选一
-    this.offerBoons();
+    this._inCombat = false;
+    // 深渊低语排程 (每层两句)
+    this._whispers = [
+      { turn: this.turn + this.rng.int(15, 60), text: STORY.pickWhisper(this.rng) },
+      { turn: this.turn + this.rng.int(90, 200), text: STORY.pickWhisper(this.rng) },
+    ];
+    // 每层祝福三选一 (newRun 会先播开场剧情再触发)
+    if (!isFresh) this.offerBoons();
   },
 
   /** 局外天赋: 每层随机映出部分地图 */
@@ -789,6 +807,10 @@ const Game = {
     // 泉水
     if (here === T.FOUNTAIN) { this.drinkFountain(); return; }
 
+    // NPC 交谈 (相邻: 预言者/被困旅者/神秘石像均为挡路格)
+    const npc = this.adjacentTiles().find(n => [T.ORACLE, T.CAPTIVE, T.STATUE].includes(L.tile(n.x, n.y)));
+    if (npc) { this.talkNPC(L.tile(npc.x, npc.y), npc); return; }
+
     // 相邻交互
     const near = this.adjacentTiles();
     let chest = null, altar = null, fountain = null, stairs = null, shopkeep = null;
@@ -1095,6 +1117,10 @@ const Game = {
     Meta.check(this);
     HUD.update(this);
     this.checkAutoStop();
+    // 深渊低语
+    if (this._whispers && this._whispers.length && this.turn >= this._whispers[0].turn) {
+      this.msg(this._whispers.shift().text, 'whisper');
+    }
     if (this.turn % 30 === 0 && this.state === 'play') this.saveRun(false);
   },
 
@@ -1314,6 +1340,136 @@ const Game = {
     AudioSys.play('ui');
   },
 
+  /** 对话系统桥接: 暂停世界, 顺序播放台词, 完成后回调 */
+  showStory(lines, cb) {
+    this.paused = true;
+    Screens.showDialogue(lines, () => {
+      this.paused = false;
+      if (cb) cb();
+      HUD.update(this);
+    });
+  },
+
+  /** 与 NPC 交谈 */
+  talkNPC(tileId, at) {
+    const key = at.x + ',' + at.y;
+    const rng = this.rng;
+    const p = this.player;
+    AudioSys.play('ui');
+
+    // —— 预言者: 首次对话赠祝福, 之后闲聊 ——
+    if (tileId === T.ORACLE) {
+      const first = !this.level.talked[key];
+      const lines = first
+        ? STORY.oracle.first.concat([
+            { name: STORY.oracle.name, text: STORY.oracle.hints[rng.int(0, STORY.oracle.hints.length - 1)] },
+            { name: STORY.oracle.name, text: STORY.oracle.blessing },
+          ])
+        : [{ name: STORY.oracle.name, text: STORY.oracle.again[rng.int(0, STORY.oracle.again.length - 1)] }];
+      this.showStory(lines, () => {
+        if (first) {
+          this.level.talked[key] = true;
+          p.heal(10);
+          this.revealPartial(0.12);
+          FX.ring(p.x, p.y, '#b197fc');
+          this.msg('预言者的符印在你掌心发烫。', 'magic');
+        }
+        HUD.update(this);
+      });
+      return;
+    }
+
+    // —— 被困的旅者: 救援 + 谢礼 ——
+    if (tileId === T.CAPTIVE) {
+      const variant = rng.pick(STORY.captive);
+      const seq = variant.lines.map(t => ({ name: variant.name, text: t }));
+      this.showStory(seq, () => {
+        const roll = rng.next();
+        if (roll < 0.5) {
+          const it = Items.mk(rng.pick(['p_hp_s', 'p_hp_l', 'p_mp']));
+          it.x = at.x; it.y = at.y;
+          this.level.items.push(it);
+          this.msg(`旅者的谢礼: ${Affixes.displayName(it)} 落在地上。`, 'item');
+        } else if (roll < 0.8) {
+          this.gainGold(40 + this.floor * 6);
+          this.msg('旅者的谢礼: 一把攥得温热的金币。', 'item');
+        } else {
+          const eq = Items.randomItem(rng, this.floor + 1, { eq: true });
+          eq.x = at.x; eq.y = at.y;
+          this.level.items.push(eq);
+          this.msg(`旅者的谢礼: ${Affixes.displayName(eq)}!`, 'item');
+        }
+        this.level.set(at.x, at.y, T.FLOOR); // 旅者离开
+        FX.ring(at.x, at.y, PALETTE.xp);
+        Meta.unlock('rescue');
+        HUD.update(this);
+      });
+      return;
+    }
+
+    // —— 神秘石像: 祈愿 (一次性, 结果随机) ——
+    if (tileId === T.STATUE) {
+      if (this.level.talked[key]) { this.msg('石像已经沉默了。', 'sys'); return; }
+      this.level.talked[key] = true;
+      const roll = rng.next();
+      let outcome = 'lore';
+      if (roll < 0.3) outcome = 'heal';
+      else if (roll < 0.45) outcome = 'atk';
+      else if (roll < 0.6) outcome = 'gold';
+      else if (roll < 0.7) outcome = 'shield';
+      else if (roll < 0.8) outcome = 'lore';
+      else if (roll < 0.9) outcome = 'curse_gold';
+      else if (roll < 0.95) outcome = 'curse_poison';
+      else outcome = 'curse_ghost';
+      const lines = [
+        { name: '神秘石像', text: STORY.statue.intro[rng.int(0, STORY.statue.intro.length - 1)] },
+        { name: '神秘石像', text: STORY.statue.outcomes[outcome] },
+      ];
+      this.showStory(lines, () => {
+        switch (outcome) {
+          case 'heal':
+            p.heal(Math.round(p.maxHp * 0.4));
+            FX.ring(p.x, p.y, PALETTE.hp);
+            break;
+          case 'atk':
+            p.baseAtk += 1;
+            this.msg('攻击永久 +1!', 'good');
+            break;
+          case 'gold':
+            this.gainGold(50 + this.floor * 8);
+            break;
+          case 'shield':
+            Status.add(p, 'shield', 15, 20);
+            break;
+          case 'lore':
+            this.msg('什么都没发生…大概。', 'sys');
+            break;
+          case 'curse_gold': {
+            const loss = Math.min(p.gold, Math.round(p.gold * 0.15));
+            p.gold -= loss;
+            this.msg(`失去 ${loss} 金币!`, 'dmg');
+            break;
+          }
+          case 'curse_poison':
+            Status.add(p, 'poison', 3, 2);
+            break;
+          case 'curse_ghost': {
+            const g = Enemies.mk('ghost', this.floor, rng);
+            g.x = at.x; g.y = at.y; g.awake = true;
+            this.level.enemies.push(g);
+            break;
+          }
+        }
+        this.level.set(at.x, at.y, T.FLOOR); // 石像风化消失
+        this.recalcStats();
+        AudioSys.play(outcome.indexOf('curse') === 0 ? 'error' : 'levelup');
+        FX.ring(p.x, p.y, outcome.indexOf('curse') === 0 ? '#ff7b72' : PALETTE.gold);
+        HUD.update(this);
+      });
+      return;
+    }
+  },
+
   // ---------------- 死亡 / 通关 ----------------
   die(cause) {
     if (this.state !== 'play') return;
@@ -1346,7 +1502,10 @@ const Game = {
     FX.boom(this.player.x, this.player.y, true);
     this.msg('🏆 <b>深渊之龙倒下了! 你成为屠龙者!</b>', 'good');
     const res = Meta.gameOver(this, true);
-    setTimeout(() => Screens.win(this, res.score, res.shards), 900);
+    // 屠龙后记: 龙的遗言 → 回响 → 尾声, 然后才是结算画面
+    this.showStory(STORY.epilogue, () => {
+      setTimeout(() => Screens.win(this, res.score, res.shards), 300);
+    });
   },
 
   continueEndless() {

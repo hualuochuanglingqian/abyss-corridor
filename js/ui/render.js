@@ -65,6 +65,21 @@ const Render = (() => {
     return `rgb(${r},${g},${b})`;
   }
 
+  /** 每层地面色调: 在主题 fa→fb 之间插值出 8 档变体 (借鉴 Pixel Dungeon 分层生物群系) */
+  function makeFloorShades(theme) {
+    const a = Util.rgb(theme.fa || PALETTE.floor);
+    const b = Util.rgb(theme.fb || theme.fa || PALETTE.floor);
+    const out = [];
+    for (let i = 0; i < 8; i++) {
+      const t = i / 7;
+      const r = Math.round(a[0] + (b[0] - a[0]) * t);
+      const g = Math.round(a[1] + (b[1] - a[1]) * t);
+      const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+      out.push(`rgb(${r},${g},${bl})`);
+    }
+    return out;
+  }
+
   // ---------- 光晕精灵缓存 ----------
   function makeGlowSprite(hex, radPx) {
     const key = hex + '|' + radPx;
@@ -181,6 +196,7 @@ const Render = (() => {
   function renderStatic(game) {
     const L = game.level;
     const vis = L.visible, exp = L.explored;
+    const fc = makeFloorShades(L.theme);   // 每层专属地面色调
     sctx.setTransform(1, 0, 0, 1, 0, 0);
     sctx.clearRect(0, 0, W * TS, H * TS);
     sctx.fillStyle = '#04060a';
@@ -201,12 +217,12 @@ const Render = (() => {
             break;
           case T.DOOR_C:
           case T.DOOR_O:
-            sctx.fillStyle = floorCols[v];
+            sctx.fillStyle = fc[v];
             sctx.fillRect(px, py, TS, TS);
             drawDoor(sctx, x, y, t === T.DOOR_O, v);
             break;
           default:
-            sctx.fillStyle = floorCols[v];
+            sctx.fillStyle = fc[v];
             sctx.fillRect(px, py, TS, TS);
             drawFloorStatic(sctx, x, y, t, v);
         }
@@ -214,6 +230,37 @@ const Render = (() => {
         sctx.fillStyle = 'rgba(0,0,0,0.14)';
         sctx.fillRect(px, py, TS, 1);
         sctx.fillRect(px, py, 1, TS);
+      }
+    }
+
+    // 商店地毯: 商人周围暖色
+    if (L.shop) {
+      for (let y = L.shop.y - 2; y <= L.shop.y + 2; y++) {
+        for (let x = L.shop.x - 2; x <= L.shop.x + 2; x++) {
+          if (x === L.shop.x && y === L.shop.y) continue;
+          if (!L.inBounds(x, y)) continue;
+          sctx.fillStyle = 'rgba(140,95,40,0.30)';
+          sctx.fillRect(x * TS, y * TS, TS, TS);
+        }
+      }
+    }
+
+    // Boss 竞技场符文阵
+    if (L.arenaCenter && L.theme.boss) {
+      const cxp = (L.arenaCenter.x + 0.5) * TS, cyp = (L.arenaCenter.y + 0.5) * TS;
+      const rr = TS * 3.2;
+      sctx.strokeStyle = 'rgba(217,171,74,0.5)';
+      sctx.lineWidth = 2;
+      sctx.beginPath(); sctx.arc(cxp, cyp, rr, 0, Math.PI * 2); sctx.stroke();
+      sctx.strokeStyle = 'rgba(200,90,70,0.45)';
+      sctx.beginPath(); sctx.arc(cxp, cyp, rr * 0.78, 0, Math.PI * 2); sctx.stroke();
+      sctx.strokeStyle = 'rgba(217,171,74,0.42)';
+      for (let a = 0; a < 8; a++) {
+        const ang = (a * Math.PI) / 4;
+        sctx.beginPath();
+        sctx.moveTo(cxp + Math.cos(ang) * rr * 0.9, cyp + Math.sin(ang) * rr * 0.9);
+        sctx.lineTo(cxp + Math.cos(ang) * rr * 1.06, cyp + Math.sin(ang) * rr * 1.06);
+        sctx.stroke();
       }
     }
 
@@ -277,6 +324,33 @@ const Render = (() => {
       c.fillRect(px + 2, py + 4, TS - 5, 3);
       c.fillRect(px + TS * 0.35, py + TS * 0.4, TS * 0.3, 3);
     }
+    // 蛛网 (左上角) / 悬挂锁链
+    if (v % 19 === 4) {
+      c.strokeStyle = 'rgba(220,220,235,0.26)';
+      c.lineWidth = 1;
+      for (let i = 1; i <= 3; i++) {
+        c.beginPath();
+        c.moveTo(px, py);
+        c.lineTo(px + (i * TS) / 3, py + TS * 0.72);
+        c.stroke();
+      }
+      for (let i = 1; i <= 2; i++) {
+        c.beginPath();
+        c.arc(px, py, i * TS * 0.26, 0, Math.PI / 2);
+        c.stroke();
+      }
+    } else if (v % 23 === 6) {
+      c.strokeStyle = 'rgba(140,145,160,0.5)';
+      c.lineWidth = 1.6;
+      c.beginPath();
+      c.moveTo(px + TS * 0.5, py);
+      c.lineTo(px + TS * 0.5, py + TS * 0.66);
+      c.stroke();
+      c.fillStyle = 'rgba(140,145,160,0.5)';
+      c.beginPath();
+      c.arc(px + TS * 0.5, py + TS * 0.72, 2.6, 0, Math.PI * 2);
+      c.fill();
+    }
   }
 
   function drawDoor(c, x, y, open, v) {
@@ -300,29 +374,54 @@ const Render = (() => {
     const px = x * TS, py = y * TS;
     switch (t) {
       case T.FLOOR: {
-        // 变体哈希装饰: 深渊水晶簇 / 小骷髅堆 (低频, 每格稳定)
+        // 变体哈希装饰: 深渊水晶簇 / 小骷髅堆 / 水洼 / 血迹 (低频, 每格稳定)
         if (v % 23 === 5) {
           c.save();
-          c.fillStyle = 'rgba(150,110,220,0.65)';
+          c.fillStyle = 'rgba(165,125,240,0.72)';
           c.beginPath();
-          c.moveTo(px + TS * 0.28, py + TS * 0.8);
-          c.lineTo(px + TS * 0.42, py + TS * 0.22);
-          c.lineTo(px + TS * 0.56, py + TS * 0.8);
+          c.moveTo(px + TS * 0.26, py + TS * 0.82);
+          c.lineTo(px + TS * 0.42, py + TS * 0.18);
+          c.lineTo(px + TS * 0.56, py + TS * 0.82);
           c.closePath();
           c.fill();
-          c.fillStyle = 'rgba(195,165,255,0.55)';
+          c.fillStyle = 'rgba(205,180,255,0.6)';
           c.beginPath();
-          c.moveTo(px + TS * 0.54, py + TS * 0.8);
-          c.lineTo(px + TS * 0.67, py + TS * 0.4);
-          c.lineTo(px + TS * 0.78, py + TS * 0.8);
+          c.moveTo(px + TS * 0.54, py + TS * 0.82);
+          c.lineTo(px + TS * 0.68, py + TS * 0.38);
+          c.lineTo(px + TS * 0.8, py + TS * 0.82);
           c.closePath();
           c.fill();
+          c.strokeStyle = 'rgba(235,225,255,0.7)';
+          c.lineWidth = 1;
+          c.beginPath();
+          c.moveTo(px + TS * 0.42, py + TS * 0.24);
+          c.lineTo(px + TS * 0.5, py + TS * 0.8);
+          c.stroke();
           c.restore();
         } else if (v % 31 === 11) {
-          c.fillStyle = 'rgba(200,195,180,0.5)';
-          c.beginPath(); c.arc(px + TS * 0.4, py + TS * 0.62, TS * 0.14, 0, Math.PI * 2); c.fill();
-          c.beginPath(); c.arc(px + TS * 0.62, py + TS * 0.7, TS * 0.11, 0, Math.PI * 2); c.fill();
-          c.beginPath(); c.arc(px + TS * 0.5, py + TS * 0.45, TS * 0.09, 0, Math.PI * 2); c.fill();
+          c.fillStyle = 'rgba(200,195,180,0.55)';
+          c.beginPath(); c.arc(px + TS * 0.38, py + TS * 0.62, TS * 0.15, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(px + TS * 0.62, py + TS * 0.7, TS * 0.12, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(px + TS * 0.5, py + TS * 0.44, TS * 0.1, 0, Math.PI * 2); c.fill();
+        } else if (v % 37 === 9) {
+          // 水洼
+          c.fillStyle = 'rgba(40,70,110,0.55)';
+          c.beginPath();
+          c.ellipse(px + TS * 0.5, py + TS * 0.6, TS * 0.34, TS * 0.17, 0, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = 'rgba(120,170,220,0.3)';
+          c.beginPath();
+          c.ellipse(px + TS * 0.42, py + TS * 0.55, TS * 0.13, TS * 0.05, 0, 0, Math.PI * 2);
+          c.fill();
+        } else if (v % 41 === 13) {
+          // 血迹
+          c.fillStyle = 'rgba(110,25,30,0.5)';
+          c.beginPath();
+          c.ellipse(px + TS * 0.45, py + TS * 0.5, TS * 0.26, TS * 0.18, 0.4, 0, Math.PI * 2);
+          c.fill();
+          c.beginPath();
+          c.ellipse(px + TS * 0.72, py + TS * 0.68, TS * 0.07, TS * 0.05, 0, 0, Math.PI * 2);
+          c.fill();
         }
         break;
       }
@@ -415,6 +514,25 @@ const Render = (() => {
           case T.SHOPKEEP:
             drawEmoji('🧞', px + TS / 2, py + TS / 2, now, 0.9);
             break;
+          case T.ORACLE: {
+            blitGlow(ctx, x, y, 1.0, '#b197fc', 0.26 + 0.08 * Math.sin(now / 350));
+            drawEmoji('🔮', px + TS / 2, py + TS / 2, now, 0.8, 'rgba(177,151,252,0.55)');
+            break;
+          }
+          case T.CAPTIVE: {
+            drawEmoji('🙍', px + TS / 2, py + TS / 2, now, 0.8);
+            ctx.save();
+            ctx.font = `${Math.round(TS * 0.34)}px ${EMOJI_FONT}`;
+            ctx.textAlign = 'center';
+            ctx.fillText('💧', px + TS * 0.74, py + TS * 0.28);
+            ctx.restore();
+            break;
+          }
+          case T.STATUE: {
+            blitGlow(ctx, x, y, 0.9, '#9aa5b5', 0.15 + 0.06 * Math.sin(now / 500));
+            drawEmoji('🗿', px + TS / 2, py + TS / 2, now, 0.8);
+            break;
+          }
           case T.TORCH: {
             drawTorchFlame(x, y, now);
             break;
@@ -853,7 +971,7 @@ const Render = (() => {
         else {
           const td = Tiles.def(L.tiles[m.y * W + m.x]);
           if (td.interact || L.tiles[m.y * W + m.x] === T.SHOPKEEP) {
-            const tip = { stairs: '下行楼梯 (Enter)', fountain: '回响泉水 (Enter 饮用)', chest: '宝箱 (Enter 开启)', altar: '深渊祭坛 (Enter 献祭)' }[td.interact];
+            const tip = { stairs: '下行楼梯 (Enter)', fountain: '回响泉水 (Enter 饮用)', chest: '宝箱 (Enter 开启)', altar: '深渊祭坛 (Enter 献祭)', oracle: '预言者 (Enter 交谈)', captive: '被困的旅者 (Enter 交谈)', statue: '神秘石像 (Enter 祈愿)' }[td.interact];
             if (tip) lines = ['🔍 ' + tip];
           }
         }

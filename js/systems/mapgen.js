@@ -23,6 +23,7 @@ const MapGen = (() => {
       golds: [],      // 金币堆 {x,y,n}
       enemies: [],
       torches: [],
+      talked: {},     // NPC 首次交谈标记 {"x,y": true}
       theme: Floors.def(floor),
       key(x, y) { return y * w + x; },
       inBounds(x, y) { return x >= 0 && y >= 0 && x < w && y < h; },
@@ -211,6 +212,7 @@ const MapGen = (() => {
       carveCorridor(L, rng, r, arena);
     }
     L.rooms = rooms.slice(1).concat(arena); // 出生点选小房间, 竞技场排最后
+    L.arenaCenter = { x: arena.cx, y: arena.cy }; // Boss 竞技场符文阵中心
     return L.rooms;
   }
 
@@ -271,6 +273,9 @@ const MapGen = (() => {
     // 商店
     maybeShop(L, rng, floor);
 
+    // 交互 NPC: 预言者 / 被困旅者 / 神秘石像
+    placeNPCs(L, rng, floor);
+
     // 伏击房 (关门打狗)
     pickAmbushRooms(L, rng);
 
@@ -306,7 +311,8 @@ const MapGen = (() => {
     let x = L.spawn.x, y = L.spawn.y;
     const carve = (xx, yy) => {
       const t = L.tile(xx, yy);
-      if (t === T.WALL || t === T.TORCH || t === T.RUBBLE || t === T.SHOPKEEP || t === T.CHEST || t === T.DOOR_C) {
+      if (t === T.WALL || t === T.TORCH || t === T.RUBBLE || t === T.SHOPKEEP
+        || t === T.CHEST || t === T.DOOR_C || t === T.ORACLE || t === T.CAPTIVE || t === T.STATUE) {
         L.set(xx, yy, T.FLOOR);
       }
     };
@@ -563,10 +569,44 @@ const MapGen = (() => {
   }
 
   /** 挑选伏击房 (关门打狗): 中等大小、无特殊设施、非出生房/商店/Boss 层 */
+  /** 交互 NPC: 预言者 / 被困旅者 / 神秘石像 — 只放开阔可达处, 不堵路 */
+  function placeNPCs(L, rng, floor) {
+    if (floor < 2 || L.theme.boss) return;
+    const used = [];
+    const okSpot = (x, y) => {
+      const t = L.tile(x, y);
+      if (!(t === T.FLOOR || t === T.GRASS || t === T.CRACK)) return false;
+      if ((x === L.spawn.x && y === L.spawn.y) || (x === L.stairsX && y === L.stairsY)) return false;
+      if (L.items.some(it => it.x === x && it.y === y) || L.golds.some(g => g.x === x && g.y === y)) return false;
+      if (L.enemies.some(e => e.hp > 0 && Util.cdist(e.x, e.y, x, y) <= 2)) return false;
+      if (used.some(u => Util.cdist(u.x, u.y, x, y) <= 4)) return false;
+      let open = 0;
+      for (const [dx, dy] of Util.DIRS8) if (L.walkable(x + dx, y + dy)) open++;
+      return open >= 5; // 开阔处, 不堵走廊
+    };
+    const put = (t) => {
+      const spots = rng.shuffled(spawnableTiles(L, 6, 40));
+      for (const s of spots) {
+        if (!okSpot(s.x, s.y)) continue;
+        clearEnemyAt(L, s.x, s.y);
+        L.items = L.items.filter(it => !(it.x === s.x && it.y === s.y));
+        L.golds = L.golds.filter(g => !(g.x === s.x && g.y === s.y));
+        L.enemies = L.enemies.filter(e => Util.cdist(e.x, e.y, s.x, s.y) > 1);
+        L.set(s.x, s.y, t);
+        used.push({ x: s.x, y: s.y });
+        return true;
+      }
+      return false;
+    };
+    if (rng.chance(0.4)) put(T.ORACLE);
+    if (rng.chance(0.4)) put(T.CAPTIVE);
+    if (floor >= 3 && rng.chance(0.35)) put(T.STATUE);
+  }
+
   function pickAmbushRooms(L, rng) {
     L.ambushRooms = [];
     if (L.theme.boss) return;
-    const bad = new Set([T.STAIRS, T.CHEST, T.FOUNTAIN, T.ALTAR, T.SHOPKEEP]);
+    const bad = new Set([T.STAIRS, T.CHEST, T.FOUNTAIN, T.ALTAR, T.SHOPKEEP, T.ORACLE, T.CAPTIVE, T.STATUE]);
     const cands = L.rooms.filter(r => {
       const area = r.w * r.h;
       if (area < 16 || area > 60) return false;

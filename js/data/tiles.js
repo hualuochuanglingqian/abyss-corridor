@@ -20,6 +20,9 @@ const T = {
   CHEST: 12,      // 宝箱 (交互: 开启)
   SHOPKEEP: 13,   // 商人 (静态, 挡路)
   ALTAR: 14,      // 祭坛 (交互: 献金币回魔/增益)
+  ORACLE: 15,     // 预言者 (交互: 对话+一次性祝福)
+  CAPTIVE: 16,    // 被困的旅者 (交互: 对话+救援奖励)
+  STATUE: 17,     // 神秘石像 (交互: 祈愿, 结果随机)
 };
 
 const TILE_DEFS = {
@@ -38,6 +41,9 @@ const TILE_DEFS = {
   [T.CHEST]:    { name: '古旧宝箱', blocksMove: true,  blocksSight: false, interact: 'chest' },
   [T.SHOPKEEP]: { name: '商人',   blocksMove: true,  blocksSight: false },
   [T.ALTAR]:    { name: '深渊祭坛', blocksMove: false, blocksSight: false, interact: 'altar' },
+  [T.ORACLE]:   { name: '预言者', blocksMove: true,  blocksSight: false, interact: 'oracle' },
+  [T.CAPTIVE]:  { name: '被困的旅者', blocksMove: true,  blocksSight: false, interact: 'captive' },
+  [T.STATUE]:   { name: '神秘石像', blocksMove: true,  blocksSight: false, interact: 'statue' },
 };
 
 const Tiles = {

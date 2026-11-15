@@ -57,9 +57,11 @@ const SaveSys = (() => {
         enemies: JSON.parse(JSON.stringify(L.enemies)),
         torches: JSON.parse(JSON.stringify(L.torches)),
         ambushRooms: JSON.parse(JSON.stringify(L.ambushRooms || [])),
+        talked: JSON.parse(JSON.stringify(L.talked || {})),
         shop: L.shop || null,
         chest: L.chest || null,
         altarUsed: !!L.altarUsed,
+        fountainUsed: !!L.fountainUsed,
       },
     };
   }
@@ -107,6 +109,8 @@ const SaveSys = (() => {
       L.enemies = d.level.enemies;
       L.torches = d.level.torches;
       L.ambushRooms = d.level.ambushRooms || [];
+      L.talked = d.level.talked || {};
+      L.fountainUsed = !!d.level.fountainUsed;
       L.shop = d.level.shop;
       L.chest = d.level.chest;
       L.altarUsed = d.level.altarUsed;

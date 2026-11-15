@@ -94,6 +94,14 @@ const Screens = (() => {
     Util.bus.on('achievement', (def) => {
       toast(`🏅 成就解锁${def.icon} <b>${def.name}</b> — ${def.desc}`, 3200);
     });
+
+    // ---- 对话系统 ----
+    $('overlay-dialog').addEventListener('click', () => advanceDialogue());
+    $('btn-dialog-skip').addEventListener('click', (e) => { e.stopPropagation(); skipDialogue(); });
+    window.addEventListener('keydown', (e) => {
+      if (!visible('overlay-dialog')) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advanceDialogue(); }
+    });
   }
 
   // ---------- 基础 ----------
@@ -211,6 +219,36 @@ const Screens = (() => {
     } else {
       game.paused = false;
     }
+  }
+
+  // ---------- 对话 ----------
+  let dq = null;
+  function showDialogue(lines, onDone) {
+    dq = { lines, i: 0, onDone: onDone || null };
+    show('overlay-dialog');
+    renderDialogue();
+  }
+  function renderDialogue() {
+    const step = dq.lines[dq.i];
+    Util.el('dialog-name').textContent = step.name || '';
+    Util.el('dialog-text').textContent = step.text || '';
+  }
+  function advanceDialogue() {
+    if (!dq) return;
+    dq.i++;
+    if (dq.i >= dq.lines.length) {
+      const cb = dq.onDone;
+      dq = null;
+      hide('overlay-dialog');
+      if (cb) cb();
+    } else renderDialogue();
+  }
+  function skipDialogue() {
+    if (!dq) return;
+    const cb = dq.onDone;
+    dq = null;
+    hide('overlay-dialog');
+    if (cb) cb();
   }
 
   // ---------- 菜单 ----------
@@ -366,6 +404,7 @@ const Screens = (() => {
     init, show, hide, hideAll, title, death, win, toast,
     openHelp, openCodex, openMenu, closeMenu, closeHelp, closeCodex, refreshRecord,
     showBoonChoices, hideBoonChoices, openTalents, openChallenge,
+    showDialogue,
     get pausedByOverlay() { return !!document.querySelector('.overlay.visible'); },
   };
 })();

@@ -533,6 +533,31 @@ simLog('\n=== 4c. 新系统检查 (词条/祝福/天赋/精英/伏击) ===');
   let dailySame = true;
   for (let i = 0; i < d1.tiles.length; i++) if (d1.tiles[i] !== d2.tiles[i]) { dailySame = false; break; }
   simAssert(dailySame, '每日种子: 同 seed 两次生成不一致');
+
+  // v2.2: 剧情 / NPC
+  simAssert(STORY.floorLore.length === 15, `story: 楼层引言应 15 条 (${STORY.floorLore.length})`);
+  simAssert(STORY.intro.length >= 3 && STORY.epilogue.length >= 2 && STORY.whispers.length >= 10, 'story: 开场/后记/低语内容缺失');
+  simAssert(STORY.oracle.first.length >= 3 && STORY.oracle.hints.length >= 6 && STORY.captive.length >= 4, 'story: NPC 对话池缺失');
+  let npcTiles = 0;
+  for (const seed of ['NPC-A', 'NPC-B']) {
+    for (let f = 2; f <= 15; f++) {
+      const L = MapGen.generate(seed, f);
+      const sk = L.stairsY * L.w + L.stairsX;
+      for (let i = 0; i < L.tiles.length; i++) {
+        const t = L.tiles[i];
+        if (t === T.ORACLE || t === T.CAPTIVE || t === T.STATUE) {
+          npcTiles++;
+          const x = i % L.w, y = (i / L.w) | 0;
+          const defs = { [T.ORACLE]: 1, [T.CAPTIVE]: 1, [T.STATUE]: 1 };
+          simAssert(Tiles.blocksMove(t), `${seed} F${f}: NPC 应为挡路格`);
+          simAssert(L.reachable(L.spawn.x, L.spawn.y)[sk] !== -1, `${seed} F${f}: NPC 堵断出生→楼梯`);
+          void defs; void x; void y;
+        }
+      }
+    }
+  }
+  simAssert(npcTiles > 0, 'NPC: 28 层未出现任何 NPC');
+  simLog(`NPC 出现次数: ${npcTiles}/28 层`);
   simLog(`精英+挑战岩蟹: HP ${ec.maxHp} → ${ec2.maxHp}, 攻 ${ec.atk} → ${ec2.atk}, 防 ${ec.def} → ${ec2.def}`);
 }
 

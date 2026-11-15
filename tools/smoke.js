@@ -18,6 +18,7 @@ const FILES = [
   'js/data/floors.js',
   'js/data/boons.js',
   'js/data/talents.js',
+  'js/data/story.js',
   'js/systems/mapgen.js',
   'js/systems/fov.js',
   'js/systems/pathing.js',

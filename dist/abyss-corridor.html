@@ -280,6 +280,22 @@ body {
 .rec-table td { padding: 7px 10px; border-bottom: 1px dashed #232d40; }
 .rec-table td:last-child { text-align: right; color: var(--gold); }
 
+/* 对话系统 */
+.dialog-layer { align-items: flex-end; background: rgba(5, 7, 11, 0.45); }
+#dialog-box {
+  width: min(680px, 92vw); margin-bottom: 7vh;
+  background: linear-gradient(180deg, #171e2b, #10141d);
+  border: 1px solid var(--gold-dim); border-radius: 12px;
+  padding: 16px 20px 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+  cursor: pointer; animation: popIn 0.18s ease-out;
+}
+#dialog-name { color: var(--gold); font-size: 14px; font-weight: bold; margin-bottom: 8px; letter-spacing: 1px; }
+#dialog-text { color: var(--text); font-size: 14px; line-height: 1.9; min-height: 54px; }
+#dialog-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+#dialog-hint { font-size: 11px; color: var(--dim); }
+#log li.log-whisper { color: #a78bfa; font-style: italic; }
+
 /* 响应式 */
 .hidden { display: none !important; }
 
@@ -556,6 +572,17 @@ body {
   </div>
 </div>
 
+<div id="overlay-dialog" class="overlay dialog-layer">
+  <div id="dialog-box">
+    <div id="dialog-name"></div>
+    <div id="dialog-text"></div>
+    <div id="dialog-footer">
+      <span id="dialog-hint">点击 / Enter 继续 ▸</span>
+      <button id="btn-dialog-skip" class="tbtn">跳过全部 ⏭</button>
+    </div>
+  </div>
+</div>
+
 <div id="overlay-menu" class="overlay">
   <div class="ov-box menu-box">
     <div class="ov-title">暂停</div>
@@ -795,7 +822,7 @@ const Util = {
 'use strict';
 
 const CONFIG = {
-  VERSION: '2.1.0',       // 与 CHANGELOG.md 同步, 标题画面显示
+  VERSION: '2.2.0',       // 与 CHANGELOG.md 同步, 标题画面显示
   TILE: 24,               // 图块像素
   MAP_W: 48,              // 地图宽 (格)
   MAP_H: 30,              // 地图高 (格)
@@ -925,6 +952,9 @@ const T = {
   CHEST: 12,      // 宝箱 (交互: 开启)
   SHOPKEEP: 13,   // 商人 (静态, 挡路)
   ALTAR: 14,      // 祭坛 (交互: 献金币回魔/增益)
+  ORACLE: 15,     // 预言者 (交互: 对话+一次性祝福)
+  CAPTIVE: 16,    // 被困的旅者 (交互: 对话+救援奖励)
+  STATUE: 17,     // 神秘石像 (交互: 祈愿, 结果随机)
 };
 
 const TILE_DEFS = {
@@ -943,6 +973,9 @@ const TILE_DEFS = {
   [T.CHEST]:    { name: '古旧宝箱', blocksMove: true,  blocksSight: false, interact: 'chest' },
   [T.SHOPKEEP]: { name: '商人',   blocksMove: true,  blocksSight: false },
   [T.ALTAR]:    { name: '深渊祭坛', blocksMove: false, blocksSight: false, interact: 'altar' },
+  [T.ORACLE]:   { name: '预言者', blocksMove: true,  blocksSight: false, interact: 'oracle' },
+  [T.CAPTIVE]:  { name: '被困的旅者', blocksMove: true,  blocksSight: false, interact: 'captive' },
+  [T.STATUE]:   { name: '神秘石像', blocksMove: true,  blocksSight: false, interact: 'statue' },
 };
 
 const Tiles = {
@@ -1543,22 +1576,23 @@ const Enemies = {
 
 'use strict';
 
+// fa/fb: 该层地面主/副色调 (借鉴 Pixel Dungeon 的分层生物群系视觉)
 const FLOORS = [
-  { name: '幽暗入口',   type: 'rooms', radius: 9,  darkness: 0,   enemyN: 5,  torch: 0.030 },
-  { name: '碎石回廊',   type: 'rooms', radius: 8,  darkness: 0.05, enemyN: 6,  torch: 0.026 },
-  { name: '蛛网洞窟',   type: 'cave',  radius: 7,  darkness: 0.10, enemyN: 7,  torch: 0.022 },
-  { name: '潮湿通道',   type: 'mixed', radius: 8,  darkness: 0.08, enemyN: 8,  torch: 0.024 },
-  { name: '屠宰场',     type: 'arena', radius: 9,  darkness: 0.06, enemyN: 2,  torch: 0.040, boss: 'boss_butcher' },
-  { name: '苔藓深处',   type: 'cave',  radius: 7,  darkness: 0.12, enemyN: 10, torch: 0.022 },
-  { name: '白骨大厅',   type: 'rooms', radius: 8,  darkness: 0.08, enemyN: 11, torch: 0.026 },
-  { name: '幽影迷宫',   type: 'rooms', radius: 6,  darkness: 0.14, enemyN: 11, torch: 0.018 },
-  { name: '恶魔前厅',   type: 'cave',  radius: 7,  darkness: 0.10, enemyN: 12, torch: 0.024 },
-  { name: '骸骨王座',   type: 'arena', radius: 10, darkness: 0.04, enemyN: 2,  torch: 0.040, boss: 'boss_king' },
-  { name: '熔岩裂隙',   type: 'cave',  radius: 7,  darkness: 0.12, enemyN: 12, torch: 0.028 },
-  { name: '秘法书房',   type: 'rooms', radius: 8,  darkness: 0.08, enemyN: 12, torch: 0.030 },
-  { name: '空寂回声',   type: 'mixed', radius: 7,  darkness: 0.12, enemyN: 13, torch: 0.022 },
-  { name: '龙脊峭壁',   type: 'cave',  radius: 7,  darkness: 0.12, enemyN: 13, torch: 0.026 },
-  { name: '深渊之心',   type: 'arena', radius: 11, darkness: 0.02, enemyN: 2,  torch: 0.050, boss: 'boss_dragon' },
+  { name: '幽暗入口',   type: 'rooms', radius: 9,  darkness: 0,   enemyN: 5,  torch: 0.030, fa: '#2d3038', fb: '#292c34' },
+  { name: '碎石回廊',   type: 'rooms', radius: 8,  darkness: 0.05, enemyN: 6,  torch: 0.026, fa: '#332e2c', fb: '#2e2a29' },
+  { name: '蛛网洞窟',   type: 'cave',  radius: 7,  darkness: 0.10, enemyN: 7,  torch: 0.022, fa: '#26302a', fb: '#222b26' },
+  { name: '潮湿通道',   type: 'mixed', radius: 8,  darkness: 0.08, enemyN: 8,  torch: 0.024, fa: '#263238', fb: '#222e33' },
+  { name: '屠宰场',     type: 'arena', radius: 9,  darkness: 0.06, enemyN: 2,  torch: 0.040, boss: 'boss_butcher', fa: '#33262a', fb: '#2e2226' },
+  { name: '苔藓深处',   type: 'cave',  radius: 7,  darkness: 0.12, enemyN: 10, torch: 0.022, fa: '#243029', fb: '#202b26' },
+  { name: '白骨大厅',   type: 'rooms', radius: 8,  darkness: 0.08, enemyN: 11, torch: 0.026, fa: '#34322e', fb: '#2f2e2a' },
+  { name: '幽影迷宫',   type: 'rooms', radius: 6,  darkness: 0.14, enemyN: 11, torch: 0.018, fa: '#272636', fb: '#232229' },
+  { name: '恶魔前厅',   type: 'cave',  radius: 7,  darkness: 0.10, enemyN: 12, torch: 0.024, fa: '#31262b', fb: '#2d2327' },
+  { name: '骸骨王座',   type: 'arena', radius: 10, darkness: 0.04, enemyN: 2,  torch: 0.040, boss: 'boss_king', fa: '#34332c', fb: '#2e2d28' },
+  { name: '熔岩裂隙',   type: 'cave',  radius: 7,  darkness: 0.12, enemyN: 12, torch: 0.028, fa: '#372a25', fb: '#312522' },
+  { name: '秘法书房',   type: 'rooms', radius: 8,  darkness: 0.08, enemyN: 12, torch: 0.030, fa: '#2a2e3b', fb: '#262a35' },
+  { name: '空寂回声',   type: 'mixed', radius: 7,  darkness: 0.12, enemyN: 13, torch: 0.022, fa: '#2a2d34', fb: '#262930' },
+  { name: '龙脊峭壁',   type: 'cave',  radius: 7,  darkness: 0.12, enemyN: 13, torch: 0.026, fa: '#352c27', fb: '#2f2824' },
+  { name: '深渊之心',   type: 'arena', radius: 11, darkness: 0.02, enemyN: 2,  torch: 0.050, boss: 'boss_dragon', fa: '#2c2438', fb: '#271f33' },
 ];
 
 const Floors = {
@@ -1721,6 +1755,142 @@ const Talents = {
 
 </script>
 <script>
+// ============ STORY: 剧情 / 深渊低语 / NPC 对话 ============
+// 借鉴"环境叙事"思路: 不做 cutscene, 用场景物件、楼层引言、NPC 对话与低语把故事缝进地牢。
+
+'use strict';
+
+const STORY = {
+  // ---- 开场 (首次冒险时的楔子) ----
+  intro: [
+    { name: '楔子', text: '三代人之前, 深渊回廊吞掉了整支掘金队。没人知道下面有什么——只知道每逢雷雨夜, 井底会传来歌声。' },
+    { name: '楔子', text: '你是第四个下去的。口袋里有一把剑、三瓶酒, 和一张只画到第五层就断掉的地图。' },
+    { name: '楔子', text: '传说回廊的最深处盘着一条龙。也有人说, 龙只是"回响"的看门人——它守着的, 是比宝藏更危险的东西。' },
+    { name: '楔子', text: '楼梯在你身后坍塌了。往下走吧——深渊不喜欢回头的人。' },
+  ],
+
+  // ---- 结局后记 (屠龙之后) ----
+  epilogue: [
+    { name: '深渊之龙', text: '「你听…」龙的身躯在崩解, 声音却越来越轻, 「那不是歌声。是我们, 在替它数着下潜的人。」' },
+    { name: '回响', text: '龙骨散落的地方, 升起一面镜子般的水泊。水面上浮出一个声音——用你自己的嗓音说: 「谢谢你来数我。」' },
+    { name: '尾声', text: '你把水泊装进瓶子, 转身沿坍塌的楼梯向上爬。深渊在你脚下合拢, 像什么都没发生过——只是从今往后, 雷雨夜里, 唱歌的换成了你。' },
+  ],
+
+  // ---- 每层引言 (进层横幅副标题) ----
+  floorLore: [
+    '风从上面来, 却带着下面的味道。',
+    '碎石堆里埋着前人的镐头——他们挖穿了, 却没挖出去。',
+    '墙上的丝还在颤动。织它的东西, 不在这层。',
+    '水声在左边, 危险在右边。别信水声。',
+    '这里的墙被擦得很干净。屠夫是个爱洁之人。',
+    '苔藓厚得能陷进脚背。这里很久没人走了——也好。',
+    '白骨朝同一个方向倒下。他们当年在逃命。',
+    '影子比人多。数一数你的影子。',
+    '空气里有硫和笑声。笑声更近。',
+    '王座上的东西已经等了很久。它不介意再等一会儿。',
+    '岩浆映出的不是火光。别盯着看。',
+    '书页无风自动。这里的知识是有代价的。',
+    '你听见自己的脚步在十步之后回响。它比你快半步。',
+    '岩壁温热, 像什么东西的脊背。',
+    '一切声音到这里都会消失。连心跳也是。龙听得见心跳。',
+  ],
+
+  // ---- 深渊低语 (每层随机飘过日志的氛围句) ----
+  whispers: [
+    '深渊低语: 「泉水记得每一滴血。」',
+    '深渊低语: 「回头的人没有名字。」',
+    '深渊低语: 「你数过自己的影子吗?」',
+    '深渊低语: 「宝藏是真的。离开的路也是。」',
+    '深渊低语: 「上一批人说这里是矿。他们挖到的不是矿。」',
+    '深渊低语: 「疼吗? 疼就对了, 说明你还活着。」',
+    '深渊低语: 「龙不睡觉。龙在听。」',
+    '深渊低语: 「别喂影子。它会记住你。」',
+    '深渊低语: 「金子在下面, 胆子在上面。你来错了地方。」',
+    '深渊低语: 「我们都在等第四个下去的人。」',
+    '深渊低语: 「楼梯会塌。缘分不会。」',
+    '深渊低语: 「喝泉水的时候闭上眼。有人在看。」',
+    '深渊低语: 「你的火把多亮, 影子就有多深。」',
+    '深渊低语: 「下面比上面安静。安静得像在等你。」',
+  ],
+
+  // ---- NPC: 预言者 (🔮) ----
+  oracle: {
+    name: '预言者·薇尔',
+    first: [
+      '预言者·薇尔: 「又一个往下走的。你的影子比我的还长。」',
+      '预言者·薇尔: 「我在这里坐了三百年, 只为等一个能听到回响的人。也许是你。」',
+      '预言者·薇尔: 「收下这个祝福吧。不是善意——是投资。」',
+    ],
+    again: [
+      '预言者·薇尔: 「还活着? 有意思。」',
+      '预言者·薇尔: 「龙的心跳每九层慢一次。你自己算。」',
+      '预言者·薇尔: 「你身上开始有深渊的味道了。」',
+    ],
+    hints: [
+      '「提示: 泉水与祭坛都在深处。见到就喝, 别问来路。」',
+      '「提示: 石头会说话, 但多半在撒谎。赌之前想清楚。」',
+      '「提示: 穿云弓最擅长对付排队的怪物。让它们排好。」',
+      '「提示: 骸骨王的仆从死了会再生。先杀召它们的人。」',
+      '「提示: 灯火妖临死会炸。杀完退一步, 是礼貌也是保命。」',
+      '「提示: 商人只认金币。晶石在他眼里就是金币。」',
+      '「提示: 自动探索会替你走路, 但不会替你挨打。听见感叹号就回头。」',
+      '「提示: 诅咒不全是坏事。敢要的人走得远。」',
+    ],
+    blessing: '预言者·薇尔在你掌心画了一个符。符沉进皮肤, 视野豁然开朗——(+10 生命, 小范围映图)',
+  },
+
+  // ---- NPC: 被困的旅者 (🙍) ----
+  captive: [
+    { name: '被困的旅者', lines: [
+      '被困的旅者: 「别过来! …你是人? 真的是人?!」',
+      '被困的旅者: 「我被蛛丝吊了三天。绳子那头的东西还在上面…替我把它……算了, 你自己小心。」',
+      '被困的旅者: 「拿着, 我用不上了。要是你能下去, 替我看一眼第十五层长什么样。」',
+    ] },
+    { name: '被困的旅者', lines: [
+      '被困的旅者: 「你也是来送死的? 哦不, 你看起来还挺能打。」',
+      '被困的旅者: 「我们掘金队十二个人下来, 现在剩我。剩下十一个在下面——以另一种形式。」',
+      '被困的旅者: 「这些金币你拿去。我拿它们出过一次价: 买命。没成交。」',
+    ] },
+    { name: '被困的旅者', lines: [
+      '被困的旅者: 「嘘…踩着水走, 别出声。这层的怪物靠听。」',
+      '被困的旅者: 「我从第五层一路爬上来的。下面更糟, 但你得去——回响不等人。」',
+      '被困的旅者: 「这瓶酒给你。不是药, 就是酒。人下深渊之前该喝一口。」',
+    ] },
+    { name: '被困的旅者', lines: [
+      '被困的旅者: 「我认识预言者。她说你会来。我笑了她三个月。」',
+      '被困的旅者: 「带着我的份往下走。要是看见龙——替我冲它比个手势。」',
+      '被困的旅者: 「装备拿走。腿给我留着, 我要爬回去娶亲。」',
+    ] },
+  ],
+
+  // ---- NPC: 神秘石像 (🗿) 祈愿结果文案 ----
+  statue: {
+    intro: [
+      '🗿 神秘石像: 「说出来。或烂在心里。」',
+      '🗿 神秘石像: 「石头的耳朵聋了三千年, 心还没聋。」',
+      '🗿 神秘石像: 「上一个许愿的人, 现在是我的一部分。」',
+    ],
+    outcomes: {
+      heal:   '石像的眼缝里渗出温水, 淋在你肩上——伤口合拢了。(生命大幅恢复)',
+      atk:    '石像伸出石手, 把一枚冰冷的石牙按进你的剑柄。(攻击永久 +1)',
+      gold:   '石像咳出一把古旧金币。它们在半空就排好了队。(金币入袋)',
+      shield: '石影环绕你周身, 如同第二层皮肤。(获得护盾)',
+      lore:   '石像说了很长一段谁都听不懂的话。你莫名觉得踏实了一点。(什么都没发生…大概)',
+      curse_gold: '石像大笑, 你的钱袋凭空轻了一截。(失去部分金币!)',
+      curse_poison: '石像呼出一口灰雾。你吸进去才反应过来。(中毒!)',
+      curse_ghost: '石像的沉默里爬出个影子——它替你"验收"了愿望。(惊现幽魂!)',
+    },
+  },
+
+  /** 随机取一条低语 (排除最近说过的) */
+  pickWhisper(rng, recent) {
+    const pool = this.whispers.filter(w => !(recent || []).includes(w));
+    return rng.pick(pool.length ? pool : this.whispers);
+  },
+};
+
+</script>
+<script>
 // ============ MAPGEN: 地图生成 ============
 // 三种生成器: rooms(房间+走廊) / cave(细胞自动机) / arena(Boss 竞技场)
 // 保证: 出生点与楼梯 BFS 连通, 物件只放在可达格上。
@@ -1746,6 +1916,7 @@ const MapGen = (() => {
       golds: [],      // 金币堆 {x,y,n}
       enemies: [],
       torches: [],
+      talked: {},     // NPC 首次交谈标记 {"x,y": true}
       theme: Floors.def(floor),
       key(x, y) { return y * w + x; },
       inBounds(x, y) { return x >= 0 && y >= 0 && x < w && y < h; },
@@ -1934,6 +2105,7 @@ const MapGen = (() => {
       carveCorridor(L, rng, r, arena);
     }
     L.rooms = rooms.slice(1).concat(arena); // 出生点选小房间, 竞技场排最后
+    L.arenaCenter = { x: arena.cx, y: arena.cy }; // Boss 竞技场符文阵中心
     return L.rooms;
   }
 
@@ -1994,6 +2166,9 @@ const MapGen = (() => {
     // 商店
     maybeShop(L, rng, floor);
 
+    // 交互 NPC: 预言者 / 被困旅者 / 神秘石像
+    placeNPCs(L, rng, floor);
+
     // 伏击房 (关门打狗)
     pickAmbushRooms(L, rng);
 
@@ -2029,7 +2204,8 @@ const MapGen = (() => {
     let x = L.spawn.x, y = L.spawn.y;
     const carve = (xx, yy) => {
       const t = L.tile(xx, yy);
-      if (t === T.WALL || t === T.TORCH || t === T.RUBBLE || t === T.SHOPKEEP || t === T.CHEST || t === T.DOOR_C) {
+      if (t === T.WALL || t === T.TORCH || t === T.RUBBLE || t === T.SHOPKEEP
+        || t === T.CHEST || t === T.DOOR_C || t === T.ORACLE || t === T.CAPTIVE || t === T.STATUE) {
         L.set(xx, yy, T.FLOOR);
       }
     };
@@ -2286,10 +2462,44 @@ const MapGen = (() => {
   }
 
   /** 挑选伏击房 (关门打狗): 中等大小、无特殊设施、非出生房/商店/Boss 层 */
+  /** 交互 NPC: 预言者 / 被困旅者 / 神秘石像 — 只放开阔可达处, 不堵路 */
+  function placeNPCs(L, rng, floor) {
+    if (floor < 2 || L.theme.boss) return;
+    const used = [];
+    const okSpot = (x, y) => {
+      const t = L.tile(x, y);
+      if (!(t === T.FLOOR || t === T.GRASS || t === T.CRACK)) return false;
+      if ((x === L.spawn.x && y === L.spawn.y) || (x === L.stairsX && y === L.stairsY)) return false;
+      if (L.items.some(it => it.x === x && it.y === y) || L.golds.some(g => g.x === x && g.y === y)) return false;
+      if (L.enemies.some(e => e.hp > 0 && Util.cdist(e.x, e.y, x, y) <= 2)) return false;
+      if (used.some(u => Util.cdist(u.x, u.y, x, y) <= 4)) return false;
+      let open = 0;
+      for (const [dx, dy] of Util.DIRS8) if (L.walkable(x + dx, y + dy)) open++;
+      return open >= 5; // 开阔处, 不堵走廊
+    };
+    const put = (t) => {
+      const spots = rng.shuffled(spawnableTiles(L, 6, 40));
+      for (const s of spots) {
+        if (!okSpot(s.x, s.y)) continue;
+        clearEnemyAt(L, s.x, s.y);
+        L.items = L.items.filter(it => !(it.x === s.x && it.y === s.y));
+        L.golds = L.golds.filter(g => !(g.x === s.x && g.y === s.y));
+        L.enemies = L.enemies.filter(e => Util.cdist(e.x, e.y, s.x, s.y) > 1);
+        L.set(s.x, s.y, t);
+        used.push({ x: s.x, y: s.y });
+        return true;
+      }
+      return false;
+    };
+    if (rng.chance(0.4)) put(T.ORACLE);
+    if (rng.chance(0.4)) put(T.CAPTIVE);
+    if (floor >= 3 && rng.chance(0.35)) put(T.STATUE);
+  }
+
   function pickAmbushRooms(L, rng) {
     L.ambushRooms = [];
     if (L.theme.boss) return;
-    const bad = new Set([T.STAIRS, T.CHEST, T.FOUNTAIN, T.ALTAR, T.SHOPKEEP]);
+    const bad = new Set([T.STAIRS, T.CHEST, T.FOUNTAIN, T.ALTAR, T.SHOPKEEP, T.ORACLE, T.CAPTIVE, T.STATUE]);
     const cands = L.rooms.filter(r => {
       const area = r.w * r.h;
       if (area < 16 || area > 60) return false;
@@ -4097,9 +4307,11 @@ const SaveSys = (() => {
         enemies: JSON.parse(JSON.stringify(L.enemies)),
         torches: JSON.parse(JSON.stringify(L.torches)),
         ambushRooms: JSON.parse(JSON.stringify(L.ambushRooms || [])),
+        talked: JSON.parse(JSON.stringify(L.talked || {})),
         shop: L.shop || null,
         chest: L.chest || null,
         altarUsed: !!L.altarUsed,
+        fountainUsed: !!L.fountainUsed,
       },
     };
   }
@@ -4147,6 +4359,8 @@ const SaveSys = (() => {
       L.enemies = d.level.enemies;
       L.torches = d.level.torches;
       L.ambushRooms = d.level.ambushRooms || [];
+      L.talked = d.level.talked || {};
+      L.fountainUsed = !!d.level.fountainUsed;
       L.shop = d.level.shop;
       L.chest = d.level.chest;
       L.altarUsed = d.level.altarUsed;
@@ -4202,6 +4416,7 @@ const ACHIEVEMENTS = [
   { id: 'skill_first',  name: '初窥魔法',     icon: '✨', desc: '第一次释放技能' },
   { id: 'chest_5',      name: '开箱狂人',     icon: '📦', desc: '累计打开 5 个宝箱' },
   { id: 'endless_20',   name: '无尽旅人',     icon: '🌀', desc: '抵达第 20 层' },
+  { id: 'rescue',       name: '救死扶伤',     icon: '🤝', desc: '救出一位被困的旅者' },
   { id: 'elite_first',  name: '精英猎手',     icon: '👑', desc: '击败一只精英怪' },
   { id: 'ambush_clear', name: '关门打狗',     icon: '🚪', desc: '清剿一处伏击房' },
   { id: 'dual_wield',   name: '双持大师',     icon: '🖖', desc: '同时装备两把武器' },
@@ -4438,6 +4653,21 @@ const Render = (() => {
     return `rgb(${r},${g},${b})`;
   }
 
+  /** 每层地面色调: 在主题 fa→fb 之间插值出 8 档变体 (借鉴 Pixel Dungeon 分层生物群系) */
+  function makeFloorShades(theme) {
+    const a = Util.rgb(theme.fa || PALETTE.floor);
+    const b = Util.rgb(theme.fb || theme.fa || PALETTE.floor);
+    const out = [];
+    for (let i = 0; i < 8; i++) {
+      const t = i / 7;
+      const r = Math.round(a[0] + (b[0] - a[0]) * t);
+      const g = Math.round(a[1] + (b[1] - a[1]) * t);
+      const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+      out.push(`rgb(${r},${g},${bl})`);
+    }
+    return out;
+  }
+
   // ---------- 光晕精灵缓存 ----------
   function makeGlowSprite(hex, radPx) {
     const key = hex + '|' + radPx;
@@ -4554,6 +4784,7 @@ const Render = (() => {
   function renderStatic(game) {
     const L = game.level;
     const vis = L.visible, exp = L.explored;
+    const fc = makeFloorShades(L.theme);   // 每层专属地面色调
     sctx.setTransform(1, 0, 0, 1, 0, 0);
     sctx.clearRect(0, 0, W * TS, H * TS);
     sctx.fillStyle = '#04060a';
@@ -4574,12 +4805,12 @@ const Render = (() => {
             break;
           case T.DOOR_C:
           case T.DOOR_O:
-            sctx.fillStyle = floorCols[v];
+            sctx.fillStyle = fc[v];
             sctx.fillRect(px, py, TS, TS);
             drawDoor(sctx, x, y, t === T.DOOR_O, v);
             break;
           default:
-            sctx.fillStyle = floorCols[v];
+            sctx.fillStyle = fc[v];
             sctx.fillRect(px, py, TS, TS);
             drawFloorStatic(sctx, x, y, t, v);
         }
@@ -4587,6 +4818,37 @@ const Render = (() => {
         sctx.fillStyle = 'rgba(0,0,0,0.14)';
         sctx.fillRect(px, py, TS, 1);
         sctx.fillRect(px, py, 1, TS);
+      }
+    }
+
+    // 商店地毯: 商人周围暖色
+    if (L.shop) {
+      for (let y = L.shop.y - 2; y <= L.shop.y + 2; y++) {
+        for (let x = L.shop.x - 2; x <= L.shop.x + 2; x++) {
+          if (x === L.shop.x && y === L.shop.y) continue;
+          if (!L.inBounds(x, y)) continue;
+          sctx.fillStyle = 'rgba(140,95,40,0.30)';
+          sctx.fillRect(x * TS, y * TS, TS, TS);
+        }
+      }
+    }
+
+    // Boss 竞技场符文阵
+    if (L.arenaCenter && L.theme.boss) {
+      const cxp = (L.arenaCenter.x + 0.5) * TS, cyp = (L.arenaCenter.y + 0.5) * TS;
+      const rr = TS * 3.2;
+      sctx.strokeStyle = 'rgba(217,171,74,0.5)';
+      sctx.lineWidth = 2;
+      sctx.beginPath(); sctx.arc(cxp, cyp, rr, 0, Math.PI * 2); sctx.stroke();
+      sctx.strokeStyle = 'rgba(200,90,70,0.45)';
+      sctx.beginPath(); sctx.arc(cxp, cyp, rr * 0.78, 0, Math.PI * 2); sctx.stroke();
+      sctx.strokeStyle = 'rgba(217,171,74,0.42)';
+      for (let a = 0; a < 8; a++) {
+        const ang = (a * Math.PI) / 4;
+        sctx.beginPath();
+        sctx.moveTo(cxp + Math.cos(ang) * rr * 0.9, cyp + Math.sin(ang) * rr * 0.9);
+        sctx.lineTo(cxp + Math.cos(ang) * rr * 1.06, cyp + Math.sin(ang) * rr * 1.06);
+        sctx.stroke();
       }
     }
 
@@ -4650,6 +4912,33 @@ const Render = (() => {
       c.fillRect(px + 2, py + 4, TS - 5, 3);
       c.fillRect(px + TS * 0.35, py + TS * 0.4, TS * 0.3, 3);
     }
+    // 蛛网 (左上角) / 悬挂锁链
+    if (v % 19 === 4) {
+      c.strokeStyle = 'rgba(220,220,235,0.26)';
+      c.lineWidth = 1;
+      for (let i = 1; i <= 3; i++) {
+        c.beginPath();
+        c.moveTo(px, py);
+        c.lineTo(px + (i * TS) / 3, py + TS * 0.72);
+        c.stroke();
+      }
+      for (let i = 1; i <= 2; i++) {
+        c.beginPath();
+        c.arc(px, py, i * TS * 0.26, 0, Math.PI / 2);
+        c.stroke();
+      }
+    } else if (v % 23 === 6) {
+      c.strokeStyle = 'rgba(140,145,160,0.5)';
+      c.lineWidth = 1.6;
+      c.beginPath();
+      c.moveTo(px + TS * 0.5, py);
+      c.lineTo(px + TS * 0.5, py + TS * 0.66);
+      c.stroke();
+      c.fillStyle = 'rgba(140,145,160,0.5)';
+      c.beginPath();
+      c.arc(px + TS * 0.5, py + TS * 0.72, 2.6, 0, Math.PI * 2);
+      c.fill();
+    }
   }
 
   function drawDoor(c, x, y, open, v) {
@@ -4673,29 +4962,54 @@ const Render = (() => {
     const px = x * TS, py = y * TS;
     switch (t) {
       case T.FLOOR: {
-        // 变体哈希装饰: 深渊水晶簇 / 小骷髅堆 (低频, 每格稳定)
+        // 变体哈希装饰: 深渊水晶簇 / 小骷髅堆 / 水洼 / 血迹 (低频, 每格稳定)
         if (v % 23 === 5) {
           c.save();
-          c.fillStyle = 'rgba(150,110,220,0.65)';
+          c.fillStyle = 'rgba(165,125,240,0.72)';
           c.beginPath();
-          c.moveTo(px + TS * 0.28, py + TS * 0.8);
-          c.lineTo(px + TS * 0.42, py + TS * 0.22);
-          c.lineTo(px + TS * 0.56, py + TS * 0.8);
+          c.moveTo(px + TS * 0.26, py + TS * 0.82);
+          c.lineTo(px + TS * 0.42, py + TS * 0.18);
+          c.lineTo(px + TS * 0.56, py + TS * 0.82);
           c.closePath();
           c.fill();
-          c.fillStyle = 'rgba(195,165,255,0.55)';
+          c.fillStyle = 'rgba(205,180,255,0.6)';
           c.beginPath();
-          c.moveTo(px + TS * 0.54, py + TS * 0.8);
-          c.lineTo(px + TS * 0.67, py + TS * 0.4);
-          c.lineTo(px + TS * 0.78, py + TS * 0.8);
+          c.moveTo(px + TS * 0.54, py + TS * 0.82);
+          c.lineTo(px + TS * 0.68, py + TS * 0.38);
+          c.lineTo(px + TS * 0.8, py + TS * 0.82);
           c.closePath();
           c.fill();
+          c.strokeStyle = 'rgba(235,225,255,0.7)';
+          c.lineWidth = 1;
+          c.beginPath();
+          c.moveTo(px + TS * 0.42, py + TS * 0.24);
+          c.lineTo(px + TS * 0.5, py + TS * 0.8);
+          c.stroke();
           c.restore();
         } else if (v % 31 === 11) {
-          c.fillStyle = 'rgba(200,195,180,0.5)';
-          c.beginPath(); c.arc(px + TS * 0.4, py + TS * 0.62, TS * 0.14, 0, Math.PI * 2); c.fill();
-          c.beginPath(); c.arc(px + TS * 0.62, py + TS * 0.7, TS * 0.11, 0, Math.PI * 2); c.fill();
-          c.beginPath(); c.arc(px + TS * 0.5, py + TS * 0.45, TS * 0.09, 0, Math.PI * 2); c.fill();
+          c.fillStyle = 'rgba(200,195,180,0.55)';
+          c.beginPath(); c.arc(px + TS * 0.38, py + TS * 0.62, TS * 0.15, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(px + TS * 0.62, py + TS * 0.7, TS * 0.12, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(px + TS * 0.5, py + TS * 0.44, TS * 0.1, 0, Math.PI * 2); c.fill();
+        } else if (v % 37 === 9) {
+          // 水洼
+          c.fillStyle = 'rgba(40,70,110,0.55)';
+          c.beginPath();
+          c.ellipse(px + TS * 0.5, py + TS * 0.6, TS * 0.34, TS * 0.17, 0, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = 'rgba(120,170,220,0.3)';
+          c.beginPath();
+          c.ellipse(px + TS * 0.42, py + TS * 0.55, TS * 0.13, TS * 0.05, 0, 0, Math.PI * 2);
+          c.fill();
+        } else if (v % 41 === 13) {
+          // 血迹
+          c.fillStyle = 'rgba(110,25,30,0.5)';
+          c.beginPath();
+          c.ellipse(px + TS * 0.45, py + TS * 0.5, TS * 0.26, TS * 0.18, 0.4, 0, Math.PI * 2);
+          c.fill();
+          c.beginPath();
+          c.ellipse(px + TS * 0.72, py + TS * 0.68, TS * 0.07, TS * 0.05, 0, 0, Math.PI * 2);
+          c.fill();
         }
         break;
       }
@@ -4788,6 +5102,25 @@ const Render = (() => {
           case T.SHOPKEEP:
             drawEmoji('🧞', px + TS / 2, py + TS / 2, now, 0.9);
             break;
+          case T.ORACLE: {
+            blitGlow(ctx, x, y, 1.0, '#b197fc', 0.26 + 0.08 * Math.sin(now / 350));
+            drawEmoji('🔮', px + TS / 2, py + TS / 2, now, 0.8, 'rgba(177,151,252,0.55)');
+            break;
+          }
+          case T.CAPTIVE: {
+            drawEmoji('🙍', px + TS / 2, py + TS / 2, now, 0.8);
+            ctx.save();
+            ctx.font = `${Math.round(TS * 0.34)}px ${EMOJI_FONT}`;
+            ctx.textAlign = 'center';
+            ctx.fillText('💧', px + TS * 0.74, py + TS * 0.28);
+            ctx.restore();
+            break;
+          }
+          case T.STATUE: {
+            blitGlow(ctx, x, y, 0.9, '#9aa5b5', 0.15 + 0.06 * Math.sin(now / 500));
+            drawEmoji('🗿', px + TS / 2, py + TS / 2, now, 0.8);
+            break;
+          }
           case T.TORCH: {
             drawTorchFlame(x, y, now);
             break;
@@ -5226,7 +5559,7 @@ const Render = (() => {
         else {
           const td = Tiles.def(L.tiles[m.y * W + m.x]);
           if (td.interact || L.tiles[m.y * W + m.x] === T.SHOPKEEP) {
-            const tip = { stairs: '下行楼梯 (Enter)', fountain: '回响泉水 (Enter 饮用)', chest: '宝箱 (Enter 开启)', altar: '深渊祭坛 (Enter 献祭)' }[td.interact];
+            const tip = { stairs: '下行楼梯 (Enter)', fountain: '回响泉水 (Enter 饮用)', chest: '宝箱 (Enter 开启)', altar: '深渊祭坛 (Enter 献祭)', oracle: '预言者 (Enter 交谈)', captive: '被困的旅者 (Enter 交谈)', statue: '神秘石像 (Enter 祈愿)' }[td.interact];
             if (tip) lines = ['🔍 ' + tip];
           }
         }
@@ -5625,6 +5958,14 @@ const Screens = (() => {
     Util.bus.on('achievement', (def) => {
       toast(`🏅 成就解锁${def.icon} <b>${def.name}</b> — ${def.desc}`, 3200);
     });
+
+    // ---- 对话系统 ----
+    $('overlay-dialog').addEventListener('click', () => advanceDialogue());
+    $('btn-dialog-skip').addEventListener('click', (e) => { e.stopPropagation(); skipDialogue(); });
+    window.addEventListener('keydown', (e) => {
+      if (!visible('overlay-dialog')) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advanceDialogue(); }
+    });
   }
 
   // ---------- 基础 ----------
@@ -5742,6 +6083,36 @@ const Screens = (() => {
     } else {
       game.paused = false;
     }
+  }
+
+  // ---------- 对话 ----------
+  let dq = null;
+  function showDialogue(lines, onDone) {
+    dq = { lines, i: 0, onDone: onDone || null };
+    show('overlay-dialog');
+    renderDialogue();
+  }
+  function renderDialogue() {
+    const step = dq.lines[dq.i];
+    Util.el('dialog-name').textContent = step.name || '';
+    Util.el('dialog-text').textContent = step.text || '';
+  }
+  function advanceDialogue() {
+    if (!dq) return;
+    dq.i++;
+    if (dq.i >= dq.lines.length) {
+      const cb = dq.onDone;
+      dq = null;
+      hide('overlay-dialog');
+      if (cb) cb();
+    } else renderDialogue();
+  }
+  function skipDialogue() {
+    if (!dq) return;
+    const cb = dq.onDone;
+    dq = null;
+    hide('overlay-dialog');
+    if (cb) cb();
   }
 
   // ---------- 菜单 ----------
@@ -5897,6 +6268,7 @@ const Screens = (() => {
     init, show, hide, hideAll, title, death, win, toast,
     openHelp, openCodex, openMenu, closeMenu, closeHelp, closeCodex, refreshRecord,
     showBoonChoices, hideBoonChoices, openTalents, openChallenge,
+    showDialogue,
     get pausedByOverlay() { return !!document.querySelector('.overlay.visible'); },
   };
 })();
@@ -6027,6 +6399,16 @@ const Game = {
     this.msg('提示: WASD/方向键移动, 撞击敌人攻击; 按 <b>H</b> 查看完整操作。', 'sys');
     this.saveRun(false);
     HUD.update(this);
+    // 开场剧情: 首次冒险播楔子, 之后直接进入祝福选择
+    if (!Meta.data.sawIntro) {
+      Meta.data.sawIntro = true;
+      Meta.save();
+      this.showStory(STORY.intro, () => {
+        if (this.state === 'play') this.offerBoons();
+      });
+    } else if (this.state === 'play') {
+      this.offerBoons();
+    }
   },
 
   makePlayer() {
@@ -6183,7 +6565,9 @@ const Game = {
     const theme = this.level.theme;
     this.banner = {
       text: `第 ${floor} 层 · ${theme.name}` + (this.challenge ? ` · ${this.challenge.icon}${this.challenge.name}` : ''),
-      sub: theme.boss ? '⚠ 空气变得灼热沉重…有强大的存在盘踞于此' : (this.challenge ? this.challenge.desc : ''),
+      sub: theme.boss
+        ? '⚠ 空气变得灼热沉重…有强大的存在盘踞于此'
+        : (this.challenge ? `⚠ ${this.challenge.desc}` : STORY.floorLore[(floor - 1) % STORY.floorLore.length]),
       t: performance.now(),
     };
     const r = this.fovRadius();
@@ -6203,8 +6587,14 @@ const Game = {
     }
     HUD.update(this);
     Meta.check(this);
-    // 每层祝福三选一
-    this.offerBoons();
+    this._inCombat = false;
+    // 深渊低语排程 (每层两句)
+    this._whispers = [
+      { turn: this.turn + this.rng.int(15, 60), text: STORY.pickWhisper(this.rng) },
+      { turn: this.turn + this.rng.int(90, 200), text: STORY.pickWhisper(this.rng) },
+    ];
+    // 每层祝福三选一 (newRun 会先播开场剧情再触发)
+    if (!isFresh) this.offerBoons();
   },
 
   /** 局外天赋: 每层随机映出部分地图 */
@@ -6694,6 +7084,10 @@ const Game = {
     // 泉水
     if (here === T.FOUNTAIN) { this.drinkFountain(); return; }
 
+    // NPC 交谈 (相邻: 预言者/被困旅者/神秘石像均为挡路格)
+    const npc = this.adjacentTiles().find(n => [T.ORACLE, T.CAPTIVE, T.STATUE].includes(L.tile(n.x, n.y)));
+    if (npc) { this.talkNPC(L.tile(npc.x, npc.y), npc); return; }
+
     // 相邻交互
     const near = this.adjacentTiles();
     let chest = null, altar = null, fountain = null, stairs = null, shopkeep = null;
@@ -7000,6 +7394,10 @@ const Game = {
     Meta.check(this);
     HUD.update(this);
     this.checkAutoStop();
+    // 深渊低语
+    if (this._whispers && this._whispers.length && this.turn >= this._whispers[0].turn) {
+      this.msg(this._whispers.shift().text, 'whisper');
+    }
     if (this.turn % 30 === 0 && this.state === 'play') this.saveRun(false);
   },
 
@@ -7219,6 +7617,136 @@ const Game = {
     AudioSys.play('ui');
   },
 
+  /** 对话系统桥接: 暂停世界, 顺序播放台词, 完成后回调 */
+  showStory(lines, cb) {
+    this.paused = true;
+    Screens.showDialogue(lines, () => {
+      this.paused = false;
+      if (cb) cb();
+      HUD.update(this);
+    });
+  },
+
+  /** 与 NPC 交谈 */
+  talkNPC(tileId, at) {
+    const key = at.x + ',' + at.y;
+    const rng = this.rng;
+    const p = this.player;
+    AudioSys.play('ui');
+
+    // —— 预言者: 首次对话赠祝福, 之后闲聊 ——
+    if (tileId === T.ORACLE) {
+      const first = !this.level.talked[key];
+      const lines = first
+        ? STORY.oracle.first.concat([
+            { name: STORY.oracle.name, text: STORY.oracle.hints[rng.int(0, STORY.oracle.hints.length - 1)] },
+            { name: STORY.oracle.name, text: STORY.oracle.blessing },
+          ])
+        : [{ name: STORY.oracle.name, text: STORY.oracle.again[rng.int(0, STORY.oracle.again.length - 1)] }];
+      this.showStory(lines, () => {
+        if (first) {
+          this.level.talked[key] = true;
+          p.heal(10);
+          this.revealPartial(0.12);
+          FX.ring(p.x, p.y, '#b197fc');
+          this.msg('预言者的符印在你掌心发烫。', 'magic');
+        }
+        HUD.update(this);
+      });
+      return;
+    }
+
+    // —— 被困的旅者: 救援 + 谢礼 ——
+    if (tileId === T.CAPTIVE) {
+      const variant = rng.pick(STORY.captive);
+      const seq = variant.lines.map(t => ({ name: variant.name, text: t }));
+      this.showStory(seq, () => {
+        const roll = rng.next();
+        if (roll < 0.5) {
+          const it = Items.mk(rng.pick(['p_hp_s', 'p_hp_l', 'p_mp']));
+          it.x = at.x; it.y = at.y;
+          this.level.items.push(it);
+          this.msg(`旅者的谢礼: ${Affixes.displayName(it)} 落在地上。`, 'item');
+        } else if (roll < 0.8) {
+          this.gainGold(40 + this.floor * 6);
+          this.msg('旅者的谢礼: 一把攥得温热的金币。', 'item');
+        } else {
+          const eq = Items.randomItem(rng, this.floor + 1, { eq: true });
+          eq.x = at.x; eq.y = at.y;
+          this.level.items.push(eq);
+          this.msg(`旅者的谢礼: ${Affixes.displayName(eq)}!`, 'item');
+        }
+        this.level.set(at.x, at.y, T.FLOOR); // 旅者离开
+        FX.ring(at.x, at.y, PALETTE.xp);
+        Meta.unlock('rescue');
+        HUD.update(this);
+      });
+      return;
+    }
+
+    // —— 神秘石像: 祈愿 (一次性, 结果随机) ——
+    if (tileId === T.STATUE) {
+      if (this.level.talked[key]) { this.msg('石像已经沉默了。', 'sys'); return; }
+      this.level.talked[key] = true;
+      const roll = rng.next();
+      let outcome = 'lore';
+      if (roll < 0.3) outcome = 'heal';
+      else if (roll < 0.45) outcome = 'atk';
+      else if (roll < 0.6) outcome = 'gold';
+      else if (roll < 0.7) outcome = 'shield';
+      else if (roll < 0.8) outcome = 'lore';
+      else if (roll < 0.9) outcome = 'curse_gold';
+      else if (roll < 0.95) outcome = 'curse_poison';
+      else outcome = 'curse_ghost';
+      const lines = [
+        { name: '神秘石像', text: STORY.statue.intro[rng.int(0, STORY.statue.intro.length - 1)] },
+        { name: '神秘石像', text: STORY.statue.outcomes[outcome] },
+      ];
+      this.showStory(lines, () => {
+        switch (outcome) {
+          case 'heal':
+            p.heal(Math.round(p.maxHp * 0.4));
+            FX.ring(p.x, p.y, PALETTE.hp);
+            break;
+          case 'atk':
+            p.baseAtk += 1;
+            this.msg('攻击永久 +1!', 'good');
+            break;
+          case 'gold':
+            this.gainGold(50 + this.floor * 8);
+            break;
+          case 'shield':
+            Status.add(p, 'shield', 15, 20);
+            break;
+          case 'lore':
+            this.msg('什么都没发生…大概。', 'sys');
+            break;
+          case 'curse_gold': {
+            const loss = Math.min(p.gold, Math.round(p.gold * 0.15));
+            p.gold -= loss;
+            this.msg(`失去 ${loss} 金币!`, 'dmg');
+            break;
+          }
+          case 'curse_poison':
+            Status.add(p, 'poison', 3, 2);
+            break;
+          case 'curse_ghost': {
+            const g = Enemies.mk('ghost', this.floor, rng);
+            g.x = at.x; g.y = at.y; g.awake = true;
+            this.level.enemies.push(g);
+            break;
+          }
+        }
+        this.level.set(at.x, at.y, T.FLOOR); // 石像风化消失
+        this.recalcStats();
+        AudioSys.play(outcome.indexOf('curse') === 0 ? 'error' : 'levelup');
+        FX.ring(p.x, p.y, outcome.indexOf('curse') === 0 ? '#ff7b72' : PALETTE.gold);
+        HUD.update(this);
+      });
+      return;
+    }
+  },
+
   // ---------------- 死亡 / 通关 ----------------
   die(cause) {
     if (this.state !== 'play') return;
@@ -7251,7 +7779,10 @@ const Game = {
     FX.boom(this.player.x, this.player.y, true);
     this.msg('🏆 <b>深渊之龙倒下了! 你成为屠龙者!</b>', 'good');
     const res = Meta.gameOver(this, true);
-    setTimeout(() => Screens.win(this, res.score, res.shards), 900);
+    // 屠龙后记: 龙的遗言 → 回响 → 尾声, 然后才是结算画面
+    this.showStory(STORY.epilogue, () => {
+      setTimeout(() => Screens.win(this, res.score, res.shards), 300);
+    });
   },
 
   continueEndless() {
