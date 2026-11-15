@@ -10,8 +10,11 @@ const Render = (() => {
   let cv, ctx;
   const TS = 24;
   const W = CONFIG.MAP_W, H = CONFIG.MAP_H;
-  const ZOOM = 1.5;          // 摄像机缩放
+  const ZOOM = 1.5;          // 跟随模式缩放
   let camX = 0, camY = 0;    // 摄像机左上角 (格坐标)
+  let curZoom = 1;           // 本帧实际缩放 (fixed=整图适配 / follow=1.5)
+  let camSX = 0, camSY = 0;  // 平滑跟随的插值位置
+  let lastDrawT = 0;         // 上一帧时间戳 (算 dt)
 
   // 离屏缓存
   let staticCv, sctx;        // 世界坐标全图静态层
@@ -98,12 +101,27 @@ const Render = (() => {
     const L = game.level;
     if (!L) return;
 
-    // 摄像机: 始终跟随玩家居中 (地图外为虚空)
+    // 摄像机: fixed(整张地图静止不动) / follow(平滑跟随人物动画位置)
     const p = game.player;
-    const viewW = cv.width / (TS * ZOOM);
-    const viewH = cv.height / (TS * ZOOM);
-    camX = p.x + 0.5 - viewW / 2;
-    camY = p.y + 0.5 - viewH / 2;
+    const mode = (game.settings && game.settings.camera === 'follow') ? 'follow' : 'fixed';
+    const zoom = (mode === 'follow') ? ZOOM : Math.min(cv.width / (W * TS), cv.height / (H * TS));
+    const viewW = cv.width / (TS * zoom);
+    const viewH = cv.height / (TS * zoom);
+    const dt = Math.min(0.1, Math.max(0.001, (now - lastDrawT) / 1000));
+    if (mode === 'follow') {
+      // 跟踪人物的"动画位置"(含移动插值), 指数平滑 → 地图滑行而非跳格
+      const [pox, poy] = entityOffset(p, now);
+      const tx = p.x + 0.5 + pox - viewW / 2;
+      const ty = p.y + 0.5 + poy - viewH / 2;
+      const k = 1 - Math.pow(0.0005, dt);
+      camSX += (tx - camSX) * k;
+      camSY += (ty - camSY) * k;
+      camX = camSX; camY = camSY;
+    } else {
+      camX = 0; camY = 0; camSX = 0; camSY = 0;
+    }
+    curZoom = zoom;
+    lastDrawT = now;
 
     // 静态层缓存: 楼层/种子/地砖版本/回合 任一变化才重绘
     const key = L.floor + '|' + (L.seed || '') + '|' + (L.version || 0) + '|' + (game.turn == null ? 0 : game.turn);
@@ -119,12 +137,13 @@ const Render = (() => {
     const by1 = Math.min(H - 1, Math.ceil(camY + viewH) + 1);
 
     ctx.save();
-    // 屏幕震动
+    // 屏幕震动 (可在设置中关闭; 默认幅度减半)
     if (FX.shakeT > 0 && FX.shakeMag > 0) {
-      const m = FX.shakeMag * (FX.shakeT / 0.28);
-      ctx.translate((Math.random() - 0.5) * m * 2, (Math.random() - 0.5) * m * 2);
+      const mul = (game.settings && game.settings.shake === false) ? 0 : 0.5;
+      const m = FX.shakeMag * (FX.shakeT / 0.28) * mul;
+      if (m > 0.1) ctx.translate((Math.random() - 0.5) * m * 2, (Math.random() - 0.5) * m * 2);
     }
-    ctx.scale(ZOOM, ZOOM);
+    ctx.scale(zoom, zoom);
     ctx.translate(-camX * TS, -camY * TS);
 
     ctx.fillStyle = PALETTE.void;
@@ -147,12 +166,12 @@ const Render = (() => {
     drawLowHpVignette(game, now);
     if (game.flashRed > 0) {
       ctx.save();
-      ctx.fillStyle = `rgba(160,20,30,${Math.min(0.35, game.flashRed * 0.35)})`;
+      ctx.fillStyle = `rgba(160,20,30,${Math.min(0.2, game.flashRed * 0.22)})`;
       ctx.fillRect(0, 0, cv.width, cv.height);
       ctx.restore();
     }
     drawBossBar(game, now);
-    drawMinimap(game);
+    if (mode === 'follow') drawMinimap(game); // 固定镜头下整图可见, 小地图冗余
     drawBanner(game, now);
     drawHover(game, now);
   }
@@ -711,8 +730,8 @@ const Render = (() => {
   }
 
   function screenToTile(px, py) {
-    const tx = Math.floor((px / ZOOM + camX * TS) / TS);
-    const ty = Math.floor((py / ZOOM + camY * TS) / TS);
+    const tx = Math.floor((px / curZoom + camX * TS) / TS);
+    const ty = Math.floor((py / curZoom + camY * TS) / TS);
     return { x: tx, y: ty };
   }
 
@@ -791,6 +810,6 @@ const Render = (() => {
   return {
     init, draw, TS, screenToTile,
     get canvas() { return cv; },
-    get camera() { return { x: camX, y: camY, zoom: ZOOM }; },
+    get camera() { return { x: camX, y: camY, zoom: curZoom }; },
   };
 })();

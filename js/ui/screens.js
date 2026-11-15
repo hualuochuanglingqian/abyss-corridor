@@ -56,6 +56,8 @@ const Screens = (() => {
 
     // ---- 暂停菜单 ----
     $('btn-menu-resume').addEventListener('click', () => { AudioSys.play('ui'); closeMenu(); });
+    $('btn-menu-camera').addEventListener('click', () => { game.toggleCamera(); refreshSettingsMenu(); });
+    $('btn-menu-shake').addEventListener('click', () => { game.toggleShake(); refreshSettingsMenu(); });
     $('btn-menu-save').addEventListener('click', () => { game.saveRun(true); closeMenu(); });
     $('btn-menu-help').addEventListener('click', () => { AudioSys.play('ui'); openHelp('menu'); });
     $('btn-menu-abandon').addEventListener('click', () => {
@@ -212,7 +214,14 @@ const Screens = (() => {
   }
 
   // ---------- 菜单 ----------
+  function refreshSettingsMenu() {
+    const b1 = Util.el('btn-menu-camera');
+    const b2 = Util.el('btn-menu-shake');
+    if (b1) b1.textContent = `🎥 镜头: ${game.settings.camera === 'fixed' ? '固定地图' : '平滑跟随'}`;
+    if (b2) b2.textContent = `📳 屏幕震动: ${game.settings.shake === false ? '关' : '开'}`;
+  }
   function openMenu() {
+    refreshSettingsMenu();
     show('overlay-menu');
     game.paused = true;
   }

@@ -35,6 +35,7 @@ const Meta = (() => {
     chests: 0,
     shards: 0,          // 魂晶 (局外货币)
     talents: {},        // 局外天赋等级
+    settings: { camera: 'fixed', shake: true },  // 视觉偏好
     version: 1,
   };
   let loaded = false;
@@ -50,6 +51,7 @@ const Meta = (() => {
         if (!isFinite(data.records.totalKills)) data.records.totalKills = 0;
         data.shards = data.shards || 0;
         data.talents = data.talents || {};
+        data.settings = Object.assign({ camera: 'fixed', shake: true }, d.settings || {});
       }
     } catch (e) { /* 用默认值 */ }
     loaded = true;

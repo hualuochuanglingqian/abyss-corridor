@@ -14,6 +14,9 @@
 - **无尽双生 Boss**：无尽回廊每 10 层（第 25/35…层）两位首领同场镇守，互相不同种 — @hualuochuanglingqian
 - **三档音量循环**：🔊 55% → 🔉 25% → 🔇，顶栏按钮/M 键循环，选择持久化 — @hualuochuanglingqian
 - 新成就：☀️ **每日打卡**（完成一次每日挑战）· 😈 **敢于诅咒**（接受一张诅咒祝福）— @hualuochuanglingqian
+- **镜头模式设置**：暂停菜单可选「固定地图」（默认——整张地图静止、人物在图内移动，晕动症玩家的福音）或「平滑跟随」（跟随镜头改为指数平滑插值，不再逐格瞬移）— @hualuochuanglingqian
+- **屏幕震动开关**：暂停菜单一键关闭；默认幅度减半，受击红闪强度下调 — @hualuochuanglingqian
+- 视觉偏好持久化（镜头/震动跟随魂晶/天赋一起存储）— @hualuochuanglingqian
 - 纪录页新增 **🏆 挑战最佳**（挑战模式历史最高分）— @hualuochuanglingqian
 
 ### 变更 Changed

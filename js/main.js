@@ -27,6 +27,8 @@ const Game = {
   // ---------------- 初始化 ----------------
   init() {
     Meta.load();
+    this.settings = Object.assign({ camera: 'fixed', shake: true }, Meta.data.settings || {});
+    Meta.data.settings = this.settings;
     Render.init(Util.el('game'));
     HUD.init();
     Screens.init(this);
@@ -59,6 +61,7 @@ const Game = {
     this.backdrop = {
       level, player: fakePlayer, mouse: { x: -1, y: -1, px: 0, py: 0 },
       banner: null, flashRed: 0,
+      settings: { camera: 'follow', shake: true },  // 标题背景保持电影感跟随镜头
     };
   },
 
@@ -1299,6 +1302,21 @@ const Game = {
   },
 
   shake(mag) { FX.shake(mag); },
+
+  // ---------------- 视觉设置 (镜头 / 震动) ----------------
+  toggleCamera() {
+    this.settings.camera = this.settings.camera === 'fixed' ? 'follow' : 'fixed';
+    Meta.save();
+    HUD.toast(this.settings.camera === 'fixed' ? '🎥 镜头: 固定地图' : '🎥 镜头: 平滑跟随');
+    AudioSys.play('ui');
+  },
+
+  toggleShake() {
+    this.settings.shake = this.settings.shake === false;
+    Meta.save();
+    HUD.toast(this.settings.shake ? '📳 屏幕震动: 开' : '📴 屏幕震动: 关');
+    AudioSys.play('ui');
+  },
 
   // ---------------- 死亡 / 通关 ----------------
   die(cause) {
