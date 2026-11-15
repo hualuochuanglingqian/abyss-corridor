@@ -3394,9 +3394,13 @@ const AI = (() => {
   }
 
   function moveEnemy(game, enemy, nx, ny) {
+    // 伏击锁定: 锁定房内的单位不能越过房间边界 (外面可以进来)
+    if (game.lockedRoomAt) {
+      const rf = game.lockedRoomAt(enemy.x, enemy.y);
+      const rt = game.lockedRoomAt(nx, ny);
+      if (rf && rf !== rt) return;
+    }
     if (game.level.tile(nx, ny) === T.DOOR_C) {
-      // 伏击房的锁邪门: 谁也打不开
-      if (game.lockedDoorAt && game.lockedDoorAt(nx, ny)) return;
       game.level.set(nx, ny, T.DOOR_O);
       game.msg('一只怪物撞开了木门!', 'warn');
     }
@@ -3450,8 +3454,10 @@ const AI = (() => {
   }
 
   function blinkAway(game, enemy, rng) {
+    const lock = game.lockedRoomAt ? game.lockedRoomAt(enemy.x, enemy.y) : null;
     const spots = MapGen.spawnableTiles(game.level, 4, 12);
-    const free = spots.filter(s => game.level.walkable(s.x, s.y) && !occupied(game, s.x, s.y));
+    const free = spots.filter(s => game.level.walkable(s.x, s.y) && !occupied(game, s.x, s.y)
+      && (!lock || (s.x >= lock.x && s.x < lock.x + lock.w && s.y >= lock.y && s.y < lock.y + lock.h)));
     if (free.length) {
       const s = rng.pick(free);
       enemy.x = s.x; enemy.y = s.y;
@@ -4523,6 +4529,7 @@ const Render = (() => {
     drawTileAnimations(game, now, bx0, bx1, by0, by1);
     drawItems(game, now, bx0, bx1, by0, by1);
     drawEntities(game, now, bx0, bx1, by0, by1);
+    drawAmbushLocks(game, now);
     drawTorchOuterGlow(game, now);
     FX.draw(ctx, TS, now);
     drawPlayerAura(game, now);
@@ -4637,6 +4644,12 @@ const Render = (() => {
       c.lineTo(px + TS * 0.35, py + TS * 0.8);
       c.stroke();
     }
+    // 墙面苔藓 (低频装饰)
+    if (v % 17 === 3) {
+      c.fillStyle = 'rgba(90,140,80,0.35)';
+      c.fillRect(px + 2, py + 4, TS - 5, 3);
+      c.fillRect(px + TS * 0.35, py + TS * 0.4, TS * 0.3, 3);
+    }
   }
 
   function drawDoor(c, x, y, open, v) {
@@ -4655,10 +4668,37 @@ const Render = (() => {
     c.fill();
   }
 
-  /** 静态地面装饰 (草/骨/裂/碎石) — 入静态层 */
+  /** 静态地面装饰 (草/骨/裂/碎石 + 变体低频水晶/骷髅) — 入静态层 */
   function drawFloorStatic(c, x, y, t, v) {
     const px = x * TS, py = y * TS;
     switch (t) {
+      case T.FLOOR: {
+        // 变体哈希装饰: 深渊水晶簇 / 小骷髅堆 (低频, 每格稳定)
+        if (v % 23 === 5) {
+          c.save();
+          c.fillStyle = 'rgba(150,110,220,0.65)';
+          c.beginPath();
+          c.moveTo(px + TS * 0.28, py + TS * 0.8);
+          c.lineTo(px + TS * 0.42, py + TS * 0.22);
+          c.lineTo(px + TS * 0.56, py + TS * 0.8);
+          c.closePath();
+          c.fill();
+          c.fillStyle = 'rgba(195,165,255,0.55)';
+          c.beginPath();
+          c.moveTo(px + TS * 0.54, py + TS * 0.8);
+          c.lineTo(px + TS * 0.67, py + TS * 0.4);
+          c.lineTo(px + TS * 0.78, py + TS * 0.8);
+          c.closePath();
+          c.fill();
+          c.restore();
+        } else if (v % 31 === 11) {
+          c.fillStyle = 'rgba(200,195,180,0.5)';
+          c.beginPath(); c.arc(px + TS * 0.4, py + TS * 0.62, TS * 0.14, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(px + TS * 0.62, py + TS * 0.7, TS * 0.11, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(px + TS * 0.5, py + TS * 0.45, TS * 0.09, 0, Math.PI * 2); c.fill();
+        }
+        break;
+      }
       case T.GRASS: {
         c.strokeStyle = 'rgba(90,150,90,0.5)';
         c.lineWidth = 1.2;
@@ -4892,9 +4932,11 @@ const Render = (() => {
     ctx.fill();
     ctx.restore();
 
-    drawEmoji('🧙', px, py, now, 1.06, 'rgba(150,190,255,0.7)');
+    // 战斗状态: 环色随敌情变化 (蓝=安全, 红=被怪盯上)
+    const inCombat = game.enemiesVisible && game.enemiesVisible().some(e => e.awake && e.hp > 0);
+    drawEmoji('🧙', px, py, now, 1.06, inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)');
     ctx.save();
-    ctx.strokeStyle = 'rgba(165,200,255,0.65)';
+    ctx.strokeStyle = inCombat ? 'rgba(255,110,90,0.7)' : 'rgba(165,200,255,0.65)';
     ctx.lineWidth = 1.6;
     ctx.beginPath();
     ctx.arc(px, py + 1, TS * 0.4, 0, Math.PI * 2);
@@ -4959,6 +5001,29 @@ const Render = (() => {
         sx += TS * 0.36;
       }
     }
+
+    // 战斗预警: 觉醒怪头顶常驻感叹号; 贴脸/进入射程时显示下次攻击伤害预估
+    if (isVis) {
+      const pl = game.player;
+      const dd = Util.cdist(e.x, e.y, pl.x, pl.y);
+      const inRange = e.ranged ? dd <= e.ranged.range : dd <= 1;
+      if (e.awake && dd > 1) {
+        drawEmoji('❗', px, py - TS * 0.88, now, 0.45);
+      } else if (inRange && e.awake) {
+        const nextDmg = e.ranged
+          ? Math.max(1, Math.round((e.ranged.dmg || e.atk) - Math.floor(pl.def / 2)))
+          : Math.max(1, Math.round(Status.atkOf(e) - pl.def));
+        ctx.font = `bold ${Math.round(TS * 0.42)}px "Microsoft YaHei", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = '⚔' + nextDmg;
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(px - tw / 2 - 3, py - TS * 0.98, tw + 6, TS * 0.42);
+        ctx.fillStyle = '#ffb35a';
+        ctx.fillText(label, px, py - TS * 0.98 + TS * 0.21);
+      }
+    }
     ctx.restore();
   }
 
@@ -4972,6 +5037,30 @@ const Render = (() => {
       if (d > 14) continue;
       const fl = 0.8 + 0.2 * Math.sin(now / 110 + t.x * 3.1 + t.y * 5.3);
       blitGlow(ctx, t.x, t.y, 2.2 + (t.bright ? 0.8 : 0), '#ff963c', 0.10 * fl);
+    }
+  }
+
+  /** 伏击结界: 锁定中的房间描红框 (纯视觉, 边界规则在 move/AI 里) */
+  function drawAmbushLocks(game, now) {
+    const L = game.level;
+    if (!L.ambushRooms) return;
+    const pulse = 0.55 + 0.35 * Math.sin(now / 300);
+    for (const r of L.ambushRooms) {
+      if (!r.triggered || r.cleared) continue;
+      const x0 = r.x * TS, y0 = r.y * TS, w = r.w * TS, h = r.h * TS;
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,80,70,${0.4 + 0.3 * pulse})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7, 5]);
+      ctx.strokeRect(x0 + 1, y0 + 1, w - 2, h - 2);
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(255,90,70,${0.45 + 0.4 * pulse})`;
+      for (const [cx, cy] of [[x0 + 1, y0 + 1], [x0 + w - 1, y0 + 1], [x0 + 1, y0 + h - 1], [x0 + w - 1, y0 + h - 1]]) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
   }
 
@@ -5112,7 +5201,10 @@ const Render = (() => {
     let lines = null;
     const e = L.enemyAt(m.x, m.y);
     if (e && FOV.isVisible(L, m.x, m.y)) {
-      lines = [`${e.glyph} ${e.name}`, `HP ${e.hp}/${e.maxHp} · 攻 ${Status.atkOf(e)} · 防 ${e.def}`, e.boss ? '★ 首领' : `经验 +${e.xp}`];
+      const nextDmg = e.ranged
+        ? Math.max(1, Math.round((e.ranged.dmg || e.atk) - Math.floor(game.player.def / 2)))
+        : Math.max(1, Math.round(Status.atkOf(e) - game.player.def));
+      lines = [`${e.glyph} ${e.name}`, `HP ${e.hp}/${e.maxHp} · 攻 ${Status.atkOf(e)} · 防 ${e.def}`, e.boss ? '★ 首领' : `经验 +${e.xp}`, `⚔ 下次攻击 ≈ ${nextDmg}`];
     } else {
       const its = L.itemsAt(m.x, m.y);
       if (its.length) {
@@ -6085,6 +6177,7 @@ const Game = {
     p.y = this.level.spawn.y;
     p.anim = null; p.lunge = null;
     this.stats.takenThisFloor = 0;
+    this._inCombat = false;
     FX.clear();
     FX.ring(p.x, p.y, PALETTE.gold);
     const theme = this.level.theme;
@@ -6191,6 +6284,14 @@ const Game = {
     const nx = p.x + dx, ny = p.y + dy;
     if (!L.inBounds(nx, ny)) return false;
 
+    // 伏击锁定: 锁定房间的单位不能越过房间边界 (房间外的人可以进来)
+    const rf = this.lockedRoomAt(p.x, p.y);
+    const rt = this.lockedRoomAt(nx, ny);
+    if (rf && rf !== rt) {
+      HUD.toast('🚪 伏击未清剿 — 清空房间里的敌人才能离开');
+      return false;
+    }
+
     const e = L.enemyAt(nx, ny);
     if (e) {
       Combat.playerAttack(this, e);
@@ -6204,10 +6305,6 @@ const Game = {
     }
     const t = L.tile(nx, ny);
     if (t === T.DOOR_C) {
-      if (this.lockedDoorAt(nx, ny)) {
-        this.msg('大门被邪能锁死了, 无法打开!', 'warn');
-        return false;
-      }
       L.set(nx, ny, T.DOOR_O);
       this.msg('吱呀一声, 木门打开了。', 'sys');
       AudioSys.play('open');
@@ -6362,11 +6459,12 @@ const Game = {
   },
 
   // ---------------- 伏击房 (关门打狗) ----------------
-  lockedDoorAt(x, y) {
+  /** (x,y) 所在的锁定中伏击房, 无则 null — 边界规则: 房内不能出去, 房外可以进来 */
+  lockedRoomAt(x, y) {
     const L = this.level;
-    if (!L.ambushRooms) return false;
-    return L.ambushRooms.some(r => r.triggered && !r.cleared
-      && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    if (!L.ambushRooms) return null;
+    return L.ambushRooms.find(r => r.triggered && !r.cleared
+      && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) || null;
   },
 
   triggerAmbushCheck() {
@@ -6383,27 +6481,15 @@ const Game = {
   triggerAmbush(room) {
     const L = this.level, p = this.player;
     room.triggered = true;
-    // 封门: 房间边缘通向外界的格子变成锁死的门 (玩家脚下的门也封)
-    let sealed = 0;
-    for (let y = room.y; y < room.y + room.h; y++) {
-      for (let x = room.x; x < room.x + room.w; x++) {
-        const edge = (x === room.x || x === room.x + room.w - 1 || y === room.y || y === room.y + room.h - 1);
-        if (!edge) continue;
-        const t = L.tile(x, y);
-        if (t === T.FLOOR || t === T.DOOR_O || t === T.GRASS || t === T.BONES || t === T.CRACK) {
-          const outside = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].some(([ox, oy]) =>
-            (ox < room.x || ox >= room.x + room.w || oy < room.y || oy >= room.y + room.h) && L.walkable(ox, oy));
-          if (outside) { L.set(x, y, T.DOOR_C); sealed++; }
-        }
-      }
-    }
-    // 刷伏击波
+    // 锁定 = 房间边界规则 (渲染为红色结界), 不再改动地砖
+    // 刷伏击波: 距玩家至少 2 格
     const rng = this.rng;
     const n = 2 + Math.min(3, Math.floor(this.floor / 3));
     const inner = [];
     for (let y = room.y; y < room.y + room.h; y++) {
       for (let x = room.x; x < room.x + room.w; x++) {
-        if (L.walkable(x, y) && !(x === p.x && y === p.y) && !L.enemyAt(x, y)) inner.push({ x, y });
+        if (L.walkable(x, y) && !(x === p.x && y === p.y) && !L.enemyAt(x, y)
+          && Util.cdist(x, y, p.x, p.y) >= 2) inner.push({ x, y });
       }
     }
     rng.shuffle(inner);
@@ -6416,7 +6502,7 @@ const Game = {
       L.enemies.push(e);
       FX.burst(e.x, e.y, '#ff7b72', 8);
     }
-    this.msg('🚪 <b>咔嚓!</b> 大门在身后关上了 — 是伏击!', 'dmg');
+    this.msg('🚪 <b>伏击!</b> 结界封死了房间 — 清空里面的敌人才能离开!', 'dmg');
     HUD.toast('⚠ 伏击! 清空房间里的敌人才能离开');
     AudioSys.play('roar');
     this.shake(6);
@@ -6431,11 +6517,6 @@ const Game = {
       const alive = L.enemies.some(e => e.ambusher === room && e.hp > 0);
       if (!alive) {
         room.cleared = true;
-        for (let y = room.y; y < room.y + room.h; y++) {
-          for (let x = room.x; x < room.x + room.w; x++) {
-            if (L.tile(x, y) === T.DOOR_C) L.set(x, y, T.FLOOR);
-          }
-        }
         const rng = this.rng;
         const it = Items.randomItem(rng, this.floor + 1, { eq: true });
         it.x = room.cx; it.y = room.cy;
@@ -6903,6 +6984,13 @@ const Game = {
     const p = this.player;
     // 视野
     FOV.compute(this.level, p.x, p.y, this.fovRadius());
+    // 战斗预警: 进入/脱离战斗
+    const inCombat = this.enemiesVisible().some(e => e.awake);
+    if (inCombat && !this._inCombat) {
+      FX.float(p.x, p.y - 0.9, '❗ 战斗!', '#ff7b72', true);
+      AudioSys.play('alert');
+    }
+    this._inCombat = inCombat;
     // 通关检查 (15 层龙已死)
     if (!this.won && !this.endless && this.floor === 15 && !this.dragonAlive() && this.state === 'play') {
       this.win();

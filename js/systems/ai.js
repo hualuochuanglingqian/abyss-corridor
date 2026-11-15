@@ -358,9 +358,13 @@ const AI = (() => {
   }
 
   function moveEnemy(game, enemy, nx, ny) {
+    // 伏击锁定: 锁定房内的单位不能越过房间边界 (外面可以进来)
+    if (game.lockedRoomAt) {
+      const rf = game.lockedRoomAt(enemy.x, enemy.y);
+      const rt = game.lockedRoomAt(nx, ny);
+      if (rf && rf !== rt) return;
+    }
     if (game.level.tile(nx, ny) === T.DOOR_C) {
-      // 伏击房的锁邪门: 谁也打不开
-      if (game.lockedDoorAt && game.lockedDoorAt(nx, ny)) return;
       game.level.set(nx, ny, T.DOOR_O);
       game.msg('一只怪物撞开了木门!', 'warn');
     }
@@ -414,8 +418,10 @@ const AI = (() => {
   }
 
   function blinkAway(game, enemy, rng) {
+    const lock = game.lockedRoomAt ? game.lockedRoomAt(enemy.x, enemy.y) : null;
     const spots = MapGen.spawnableTiles(game.level, 4, 12);
-    const free = spots.filter(s => game.level.walkable(s.x, s.y) && !occupied(game, s.x, s.y));
+    const free = spots.filter(s => game.level.walkable(s.x, s.y) && !occupied(game, s.x, s.y)
+      && (!lock || (s.x >= lock.x && s.x < lock.x + lock.w && s.y >= lock.y && s.y < lock.y + lock.h)));
     if (free.length) {
       const s = rng.pick(free);
       enemy.x = s.x; enemy.y = s.y;

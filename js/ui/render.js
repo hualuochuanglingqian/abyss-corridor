@@ -156,6 +156,7 @@ const Render = (() => {
     drawTileAnimations(game, now, bx0, bx1, by0, by1);
     drawItems(game, now, bx0, bx1, by0, by1);
     drawEntities(game, now, bx0, bx1, by0, by1);
+    drawAmbushLocks(game, now);
     drawTorchOuterGlow(game, now);
     FX.draw(ctx, TS, now);
     drawPlayerAura(game, now);
@@ -270,6 +271,12 @@ const Render = (() => {
       c.lineTo(px + TS * 0.35, py + TS * 0.8);
       c.stroke();
     }
+    // 墙面苔藓 (低频装饰)
+    if (v % 17 === 3) {
+      c.fillStyle = 'rgba(90,140,80,0.35)';
+      c.fillRect(px + 2, py + 4, TS - 5, 3);
+      c.fillRect(px + TS * 0.35, py + TS * 0.4, TS * 0.3, 3);
+    }
   }
 
   function drawDoor(c, x, y, open, v) {
@@ -288,10 +295,37 @@ const Render = (() => {
     c.fill();
   }
 
-  /** 静态地面装饰 (草/骨/裂/碎石) — 入静态层 */
+  /** 静态地面装饰 (草/骨/裂/碎石 + 变体低频水晶/骷髅) — 入静态层 */
   function drawFloorStatic(c, x, y, t, v) {
     const px = x * TS, py = y * TS;
     switch (t) {
+      case T.FLOOR: {
+        // 变体哈希装饰: 深渊水晶簇 / 小骷髅堆 (低频, 每格稳定)
+        if (v % 23 === 5) {
+          c.save();
+          c.fillStyle = 'rgba(150,110,220,0.65)';
+          c.beginPath();
+          c.moveTo(px + TS * 0.28, py + TS * 0.8);
+          c.lineTo(px + TS * 0.42, py + TS * 0.22);
+          c.lineTo(px + TS * 0.56, py + TS * 0.8);
+          c.closePath();
+          c.fill();
+          c.fillStyle = 'rgba(195,165,255,0.55)';
+          c.beginPath();
+          c.moveTo(px + TS * 0.54, py + TS * 0.8);
+          c.lineTo(px + TS * 0.67, py + TS * 0.4);
+          c.lineTo(px + TS * 0.78, py + TS * 0.8);
+          c.closePath();
+          c.fill();
+          c.restore();
+        } else if (v % 31 === 11) {
+          c.fillStyle = 'rgba(200,195,180,0.5)';
+          c.beginPath(); c.arc(px + TS * 0.4, py + TS * 0.62, TS * 0.14, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(px + TS * 0.62, py + TS * 0.7, TS * 0.11, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(px + TS * 0.5, py + TS * 0.45, TS * 0.09, 0, Math.PI * 2); c.fill();
+        }
+        break;
+      }
       case T.GRASS: {
         c.strokeStyle = 'rgba(90,150,90,0.5)';
         c.lineWidth = 1.2;
@@ -525,9 +559,11 @@ const Render = (() => {
     ctx.fill();
     ctx.restore();
 
-    drawEmoji('🧙', px, py, now, 1.06, 'rgba(150,190,255,0.7)');
+    // 战斗状态: 环色随敌情变化 (蓝=安全, 红=被怪盯上)
+    const inCombat = game.enemiesVisible && game.enemiesVisible().some(e => e.awake && e.hp > 0);
+    drawEmoji('🧙', px, py, now, 1.06, inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)');
     ctx.save();
-    ctx.strokeStyle = 'rgba(165,200,255,0.65)';
+    ctx.strokeStyle = inCombat ? 'rgba(255,110,90,0.7)' : 'rgba(165,200,255,0.65)';
     ctx.lineWidth = 1.6;
     ctx.beginPath();
     ctx.arc(px, py + 1, TS * 0.4, 0, Math.PI * 2);
@@ -592,6 +628,29 @@ const Render = (() => {
         sx += TS * 0.36;
       }
     }
+
+    // 战斗预警: 觉醒怪头顶常驻感叹号; 贴脸/进入射程时显示下次攻击伤害预估
+    if (isVis) {
+      const pl = game.player;
+      const dd = Util.cdist(e.x, e.y, pl.x, pl.y);
+      const inRange = e.ranged ? dd <= e.ranged.range : dd <= 1;
+      if (e.awake && dd > 1) {
+        drawEmoji('❗', px, py - TS * 0.88, now, 0.45);
+      } else if (inRange && e.awake) {
+        const nextDmg = e.ranged
+          ? Math.max(1, Math.round((e.ranged.dmg || e.atk) - Math.floor(pl.def / 2)))
+          : Math.max(1, Math.round(Status.atkOf(e) - pl.def));
+        ctx.font = `bold ${Math.round(TS * 0.42)}px "Microsoft YaHei", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = '⚔' + nextDmg;
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(px - tw / 2 - 3, py - TS * 0.98, tw + 6, TS * 0.42);
+        ctx.fillStyle = '#ffb35a';
+        ctx.fillText(label, px, py - TS * 0.98 + TS * 0.21);
+      }
+    }
     ctx.restore();
   }
 
@@ -605,6 +664,30 @@ const Render = (() => {
       if (d > 14) continue;
       const fl = 0.8 + 0.2 * Math.sin(now / 110 + t.x * 3.1 + t.y * 5.3);
       blitGlow(ctx, t.x, t.y, 2.2 + (t.bright ? 0.8 : 0), '#ff963c', 0.10 * fl);
+    }
+  }
+
+  /** 伏击结界: 锁定中的房间描红框 (纯视觉, 边界规则在 move/AI 里) */
+  function drawAmbushLocks(game, now) {
+    const L = game.level;
+    if (!L.ambushRooms) return;
+    const pulse = 0.55 + 0.35 * Math.sin(now / 300);
+    for (const r of L.ambushRooms) {
+      if (!r.triggered || r.cleared) continue;
+      const x0 = r.x * TS, y0 = r.y * TS, w = r.w * TS, h = r.h * TS;
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,80,70,${0.4 + 0.3 * pulse})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7, 5]);
+      ctx.strokeRect(x0 + 1, y0 + 1, w - 2, h - 2);
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(255,90,70,${0.45 + 0.4 * pulse})`;
+      for (const [cx, cy] of [[x0 + 1, y0 + 1], [x0 + w - 1, y0 + 1], [x0 + 1, y0 + h - 1], [x0 + w - 1, y0 + h - 1]]) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
   }
 
@@ -745,7 +828,10 @@ const Render = (() => {
     let lines = null;
     const e = L.enemyAt(m.x, m.y);
     if (e && FOV.isVisible(L, m.x, m.y)) {
-      lines = [`${e.glyph} ${e.name}`, `HP ${e.hp}/${e.maxHp} · 攻 ${Status.atkOf(e)} · 防 ${e.def}`, e.boss ? '★ 首领' : `经验 +${e.xp}`];
+      const nextDmg = e.ranged
+        ? Math.max(1, Math.round((e.ranged.dmg || e.atk) - Math.floor(game.player.def / 2)))
+        : Math.max(1, Math.round(Status.atkOf(e) - game.player.def));
+      lines = [`${e.glyph} ${e.name}`, `HP ${e.hp}/${e.maxHp} · 攻 ${Status.atkOf(e)} · 防 ${e.def}`, e.boss ? '★ 首领' : `经验 +${e.xp}`, `⚔ 下次攻击 ≈ ${nextDmg}`];
     } else {
       const its = L.itemsAt(m.x, m.y);
       if (its.length) {

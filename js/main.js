@@ -272,6 +272,7 @@ const Game = {
     p.y = this.level.spawn.y;
     p.anim = null; p.lunge = null;
     this.stats.takenThisFloor = 0;
+    this._inCombat = false;
     FX.clear();
     FX.ring(p.x, p.y, PALETTE.gold);
     const theme = this.level.theme;
@@ -378,6 +379,14 @@ const Game = {
     const nx = p.x + dx, ny = p.y + dy;
     if (!L.inBounds(nx, ny)) return false;
 
+    // 伏击锁定: 锁定房间的单位不能越过房间边界 (房间外的人可以进来)
+    const rf = this.lockedRoomAt(p.x, p.y);
+    const rt = this.lockedRoomAt(nx, ny);
+    if (rf && rf !== rt) {
+      HUD.toast('🚪 伏击未清剿 — 清空房间里的敌人才能离开');
+      return false;
+    }
+
     const e = L.enemyAt(nx, ny);
     if (e) {
       Combat.playerAttack(this, e);
@@ -391,10 +400,6 @@ const Game = {
     }
     const t = L.tile(nx, ny);
     if (t === T.DOOR_C) {
-      if (this.lockedDoorAt(nx, ny)) {
-        this.msg('大门被邪能锁死了, 无法打开!', 'warn');
-        return false;
-      }
       L.set(nx, ny, T.DOOR_O);
       this.msg('吱呀一声, 木门打开了。', 'sys');
       AudioSys.play('open');
@@ -549,11 +554,12 @@ const Game = {
   },
 
   // ---------------- 伏击房 (关门打狗) ----------------
-  lockedDoorAt(x, y) {
+  /** (x,y) 所在的锁定中伏击房, 无则 null — 边界规则: 房内不能出去, 房外可以进来 */
+  lockedRoomAt(x, y) {
     const L = this.level;
-    if (!L.ambushRooms) return false;
-    return L.ambushRooms.some(r => r.triggered && !r.cleared
-      && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    if (!L.ambushRooms) return null;
+    return L.ambushRooms.find(r => r.triggered && !r.cleared
+      && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) || null;
   },
 
   triggerAmbushCheck() {
@@ -570,27 +576,15 @@ const Game = {
   triggerAmbush(room) {
     const L = this.level, p = this.player;
     room.triggered = true;
-    // 封门: 房间边缘通向外界的格子变成锁死的门 (玩家脚下的门也封)
-    let sealed = 0;
-    for (let y = room.y; y < room.y + room.h; y++) {
-      for (let x = room.x; x < room.x + room.w; x++) {
-        const edge = (x === room.x || x === room.x + room.w - 1 || y === room.y || y === room.y + room.h - 1);
-        if (!edge) continue;
-        const t = L.tile(x, y);
-        if (t === T.FLOOR || t === T.DOOR_O || t === T.GRASS || t === T.BONES || t === T.CRACK) {
-          const outside = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].some(([ox, oy]) =>
-            (ox < room.x || ox >= room.x + room.w || oy < room.y || oy >= room.y + room.h) && L.walkable(ox, oy));
-          if (outside) { L.set(x, y, T.DOOR_C); sealed++; }
-        }
-      }
-    }
-    // 刷伏击波
+    // 锁定 = 房间边界规则 (渲染为红色结界), 不再改动地砖
+    // 刷伏击波: 距玩家至少 2 格
     const rng = this.rng;
     const n = 2 + Math.min(3, Math.floor(this.floor / 3));
     const inner = [];
     for (let y = room.y; y < room.y + room.h; y++) {
       for (let x = room.x; x < room.x + room.w; x++) {
-        if (L.walkable(x, y) && !(x === p.x && y === p.y) && !L.enemyAt(x, y)) inner.push({ x, y });
+        if (L.walkable(x, y) && !(x === p.x && y === p.y) && !L.enemyAt(x, y)
+          && Util.cdist(x, y, p.x, p.y) >= 2) inner.push({ x, y });
       }
     }
     rng.shuffle(inner);
@@ -603,7 +597,7 @@ const Game = {
       L.enemies.push(e);
       FX.burst(e.x, e.y, '#ff7b72', 8);
     }
-    this.msg('🚪 <b>咔嚓!</b> 大门在身后关上了 — 是伏击!', 'dmg');
+    this.msg('🚪 <b>伏击!</b> 结界封死了房间 — 清空里面的敌人才能离开!', 'dmg');
     HUD.toast('⚠ 伏击! 清空房间里的敌人才能离开');
     AudioSys.play('roar');
     this.shake(6);
@@ -618,11 +612,6 @@ const Game = {
       const alive = L.enemies.some(e => e.ambusher === room && e.hp > 0);
       if (!alive) {
         room.cleared = true;
-        for (let y = room.y; y < room.y + room.h; y++) {
-          for (let x = room.x; x < room.x + room.w; x++) {
-            if (L.tile(x, y) === T.DOOR_C) L.set(x, y, T.FLOOR);
-          }
-        }
         const rng = this.rng;
         const it = Items.randomItem(rng, this.floor + 1, { eq: true });
         it.x = room.cx; it.y = room.cy;
@@ -1090,6 +1079,13 @@ const Game = {
     const p = this.player;
     // 视野
     FOV.compute(this.level, p.x, p.y, this.fovRadius());
+    // 战斗预警: 进入/脱离战斗
+    const inCombat = this.enemiesVisible().some(e => e.awake);
+    if (inCombat && !this._inCombat) {
+      FX.float(p.x, p.y - 0.9, '❗ 战斗!', '#ff7b72', true);
+      AudioSys.play('alert');
+    }
+    this._inCombat = inCombat;
     // 通关检查 (15 层龙已死)
     if (!this.won && !this.endless && this.floor === 15 && !this.dragonAlive() && this.state === 'play') {
       this.win();
