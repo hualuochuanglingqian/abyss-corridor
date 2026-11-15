@@ -17,17 +17,32 @@
 - **对话系统**：RPG 式底部对话框（顺序推进 / 点击或 Enter / 跳过全部），对话期间世界暂停 — @hualuochuanglingqian
 - **三个交互 NPC**：🔮 **预言者·薇尔**（首次交谈赠祝福+映图，之后闲聊）、🙍 **被困的旅者**（对话救援，掉落谢礼，新成就 🤝 救死扶伤）、🗿 **神秘石像**（免费祈愿：祝福/无事/诅咒随机，一次性）— @hualuochuanglingqian
 - **每层专属色调**：15 层地面各自配色（借鉴 Pixel Dungeon 分层生物群系：灰→褐→绿→骨白→紫黑→熔岩红…），一眼认出自己在多深 — @hualuochuanglingqian
+- **无尽双生 Boss**：无尽回廊每 10 层（第 25/35…层）两位首领同场镇守，互相不同种 — @hualuochuanglingqian
+- **三档音量循环**：🔊 55% → 🔉 25% → 🔇，顶栏按钮/M 键循环，选择持久化 — @hualuochuanglingqian
+- 新成就：☀️ **每日打卡**（完成一次每日挑战）· 😈 **敢于诅咒**（接受一张诅咒祝福）· 🤝 救死扶伤 — @hualuochuanglingqian
+- **镜头模式设置**：暂停菜单可选「固定地图」（默认——整张地图静止、人物在图内移动，晕动症玩家的福音）或「平滑跟随」（跟随镜头改为指数平滑插值，不再逐格瞬移）— @hualuochuanglingqian
+- **屏幕震动开关**：暂停菜单一键关闭；默认幅度减半，受击红闪强度下调 — @hualuochuanglingqian
+- 视觉偏好持久化（镜头/震动跟随魂晶/天赋一起存储）— @hualuochuanglingqian
+- 纪录页新增 **🏆 挑战最佳**（挑战模式历史最高分）— @hualuochuanglingqian
+- **怪物攻击预警**：战斗开始瞬间人物头顶弹出「❗ 战斗!」、脚下光环变红；觉醒怪头顶常驻 ❗；怪物贴脸或进入射程时头顶显示「⚔ 下次攻击 ≈ N」伤害预估（悬停详情同样可见）— @hualuochuanglingqian
+- **像素风 UI 全面重制**：引入开源中文像素字体 **Fusion Pixel 12px**（OFL 许可，仅 936KB，本地文件依然离线可玩），全部界面/日志/画布文字像素化；直角硬边面板、斜面按钮、CRT 扫描线与暗角、侧栏紧凑化。项目素材原则修订：OFL 开源字体允许入库 — @hualuochuanglingqian
 
 ### 装饰 Decor
 - 地面新增**水洼**、**血迹**；水晶簇加大加亮并带高光棱线 — @hualuochuanglingqian
 - 墙面新增**蛛网**（左上角）与**悬挂锁链** — @hualuochuanglingqian
 - Boss 竞技场地面绘制**双层符文阵**；商店房铺设暖色**地毯** — @hualuochuanglingqian
 
+### 变更 Changed
+- **渲染器 GC 治理**：静态图层（图块+光照+迷雾）离屏缓存、全部光晕预渲染为精灵、暗度查表——200 帧探针：常见帧 2.9ms → **0.1ms**，p99 54ms → 10.7ms（仅换帧重绘），低端机不再卡顿 — @hualuochuanglingqian
+- 穿云弓 / 连锁法杖加入稀有池，不再出现在商店 — @hualuochuanglingqian
+- 散弹弩/连锁法杖等远程武器随挑战因子正确缩放 — @hualuochuanglingqian
+
 ### 修复 Fixed
 - **严重 · 伏击房死局**：触发伏击后玩家能"走出"结界（封门格刷在玩家脚下，一步就跨出去了），再想进房却被锁在门外，房里的怪隔着门口打你——表现为"顶怪不掉血、自己却掉血"，房间永久清不掉。整体重做为**结界边界规则**（房内出不去 / 房外进得来 / 清剿自动解除），不再改动地砖，并渲染红色结界特效 — @hualuochuanglingqian
 - 修复打开宝箱时因未定义变量导致的崩溃 — @hualuochuanglingqian
 - 修复「累计击杀」在首次会话显示 NaN 的问题 — @hualuochuanglingqian
 - 修复每日挑战进度在刷新读档后丢失标记的问题 — @hualuochuanglingqian
+- 修复胜利结算画面因 `showStory` 未定义而崩溃的问题 — @hualuochuanglingqian
 - 悬停物品提示现在显示完整词条名 — @hualuochuanglingqian
 
 ## [2.1.0] - 2026-11-14 · 「深渊军械库」版
