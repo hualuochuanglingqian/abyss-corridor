@@ -69,10 +69,23 @@ const Game = {
   loop(now) {
     const dt = Math.min(0.05, (now - this._lastT) / 1000 || 0.016);
     this._lastT = now;
-    FX.update(dt);
+    // 顿帧 (hitstop): 命中/击杀瞬间世界短暂凝滞, 增强打击感
+    const frozen = this._freezeUntil && now < this._freezeUntil;
+    if (!frozen) FX.update(dt);
+    if (this._fade > 0) this._fade = Math.max(0, this._fade - dt * 1.6);
     if (this.flashRed > 0) this.flashRed = Math.max(0, this.flashRed - dt * 2.2);
 
-    if (this.state === 'play' && !this.paused && this.auto) {
+    // 低血量心跳 (v2.3): 生命 < 28% 且未暂停时每 1.15s 一次闷响
+    if (this.state === 'play' && !this.paused && this.player
+      && this.player.hp > 0 && this.player.hp / this.player.maxHp < 0.28) {
+      this._hbTimer = (this._hbTimer || 0) - dt * 1000;
+      if (this._hbTimer <= 0) {
+        this._hbTimer = 1150;
+        AudioSys.play('heartbeat');
+      }
+    }
+
+    if (!frozen && this.state === 'play' && !this.paused && this.auto) {
       this.autoTimer -= dt * 1000;
       if (this.autoTimer <= 0) {
         this.autoTimer = 95;
@@ -93,6 +106,11 @@ const Game = {
     requestAnimationFrame((t) => this.loop(t));
   },
 
+  /** 顿帧: 世界凝滞 ms 毫秒 (暴击/击杀/玩家受击/Boss 登场) */
+  hitstop(ms) {
+    this._freezeUntil = performance.now() + ms;
+  },
+
   // ---------------- 开局 / 读档 ----------------
   newRun(challenge, opts) {
     opts = opts || {};
@@ -108,9 +126,11 @@ const Game = {
     this.auto = null;
     this.paused = false;
     this.state = 'play';
-    this.won = false;
+    this._fade = 1;
+    this._freezeUntil = 0;
     this.stats = this.defaultStats();
-    this.player = this.makePlayer();
+    this.player = this.makePlayer(opts.cls);
+    this.recalcStats();   // 职业偏移 (acc/eva/crit) 在首帧 HUD 前生效
     FX.clear();
     HUD.clearLog();
     Screens.hideAll();
@@ -118,7 +138,8 @@ const Game = {
     AudioSys.startAmbience();
     Meta.newRun();
     this.enterFloor(1, true);
-    this.msg('<b>你踏入了暗渊回廊。</b> 传说第 15 层盘踞着深渊之龙…', 'sys');
+    const cls = this.clsDef();
+    this.msg(`<b>${cls ? cls.icon + ' ' + cls.name : '旅者'}踏入了暗渊回廊。</b> 传说第 15 层盘踞着深渊之龙…`, 'sys');
     this.msg('提示: WASD/方向键移动, 撞击敌人攻击; 按 <b>H</b> 查看完整操作。', 'sys');
     this.saveRun(false);
     HUD.update(this);
@@ -134,20 +155,40 @@ const Game = {
     }
   },
 
-  makePlayer() {
+  /** 当前职业定义 (无职业返回 null) */
+  clsDef() {
+    if (!this.player || !this.player.cls) return null;
+    return CONFIG.CLASSES.find(c => c.id === this.player.cls) || null;
+  },
+
+  makePlayer(clsId) {
+    const cls = CONFIG.CLASSES.find(c => c.id === clsId) || null;
     const p = {
-      name: '旅者',
+      name: cls ? cls.name : '旅者',
+      cls: cls ? cls.id : null,
       x: 0, y: 0, anim: null, lunge: null,
-      baseMaxHp: CONFIG.PLAYER.HP, baseMaxMp: CONFIG.PLAYER.MP,
-      baseAtk: CONFIG.PLAYER.ATK, baseDef: CONFIG.PLAYER.DEF,
-      hp: CONFIG.PLAYER.HP, mp: CONFIG.PLAYER.MP,
+      baseMaxHp: CONFIG.PLAYER.HP + (cls ? cls.hp : 0),
+      baseMaxMp: CONFIG.PLAYER.MP + (cls ? cls.mp : 0),
+      baseAtk: CONFIG.PLAYER.ATK, baseDef: CONFIG.PLAYER.DEF + (cls ? cls.def : 0),
+      clsAcc: cls ? cls.acc : 0, clsEva: cls ? cls.eva : 0, clsCrit: cls ? cls.crit : 0,
+      hp: 0, mp: 0,
       maxHp: CONFIG.PLAYER.HP, maxMp: CONFIG.PLAYER.MP,
       atk: CONFIG.PLAYER.ATK, def: 0, acc: 85, eva: 5, crit: 5,
       level: 1, xp: 0, gold: 10,
       inv: [Items.mk('p_hp_s', 3), Items.mk('p_mp', 1)],
-      equip: { weapon: null, weapon2: null, armor: Items.mk('a_cloth'), trinket: null },
-      kills: 0, statuses: [], flags: {}, boons: {}, baseFov: 0,
+      equip: {
+        weapon: cls ? Items.mk(cls.weapon) : null,
+        weapon2: null,
+        armor: Items.mk('a_cloth'),
+        trinket: null,
+      },
+      kills: 0, statuses: [], flags: {}, boons: {}, baseFov: cls ? cls.fov : 0,
     };
+    p.hp = p.baseMaxHp; p.mp = p.baseMaxMp;
+    if (cls) {
+      this.msg(`你以 <b>${cls.icon} ${cls.name}</b> 之名下潜: ${cls.desc}`, 'magic');
+      if (cls.id === 'ranger') Meta.tipOnce('ranged', '🏹 远程武器: 朝敌人方向按方向键即射击 (弓/弩直线, 法杖自动锁定 2MP/发)');
+    }
     this.attachPlayerMethods(p);
     // 局外天赋 (魂晶解锁) 开局生效
     Talents.apply(p, Meta.data.talents || {});
@@ -171,12 +212,12 @@ const Game = {
   },
 
   /** 每日挑战: 日期决定种子与因子, 全世界同一天同一张地牢 */
-  startDaily() {
+  startDaily(cls) {
     const d = new Date();
     const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     const rng = new RNG('DAILY-' + ymd);
     const factor = CONFIG.CHALLENGES[rng.int(0, CONFIG.CHALLENGES.length - 1)];
-    this.newRun(factor, { seed: 'DAILY-' + ymd, daily: true });
+    this.newRun(factor, { seed: 'DAILY-' + ymd, daily: true, cls });
     this.msg(`☀️ <b>每日挑战 ${ymd}</b> — 今日因子: ${factor.icon} ${factor.name}`, 'magic');
     HUD.update(this);
   },
@@ -200,6 +241,8 @@ const Game = {
     this.paused = false;
     this.auto = null;
     this.won = false;
+    this._fade = 0.6;
+    this._freezeUntil = 0;
     const p = Object.assign({}, d.player);
     p.anim = null; p.lunge = null;
     this.attachPlayerMethods(p);
@@ -244,9 +287,9 @@ const Game = {
     const bb = Boons.bonus(p);
     p.atk = p.baseAtk + b.atk + bb.atk;
     p.def = p.baseDef + b.def + bb.def;
-    p.acc = 85 + b.acc + bb.acc;
-    p.eva = 5 + b.eva + bb.eva;
-    p.crit = 5 + b.crit + bb.crit;
+    p.acc = 85 + (p.clsAcc || 0) + b.acc + bb.acc;
+    p.eva = 5 + (p.clsEva || 0) + b.eva + bb.eva;
+    p.crit = 5 + (p.clsCrit || 0) + b.crit + bb.crit;
     p.maxHp = Math.max(10, Math.round((p.baseMaxHp + bb.hp) * (1 + (bb.flag.hpPct || 0))));
     p.maxMp = p.baseMaxMp + b.mp;
     p.flags = Object.assign({}, b.flag, bb.flag);
@@ -293,6 +336,7 @@ const Game = {
         : (this.challenge ? `⚠ ${this.challenge.desc}` : STORY.floorLore[(floor - 1) % STORY.floorLore.length]),
       t: performance.now(),
     };
+    this._fade = 1;   // 换层渐隐过渡
     const r = this.fovRadius();
     FOV.compute(this.level, p.x, p.y, r);
     // 铁壁祝福: 每层护盾
@@ -339,6 +383,10 @@ const Game = {
   offerBoons() {
     if (this.state !== 'play') return;
     this.boonChoices = Boons.sample(this.rng, 3);
+    // 首次见到诅咒卡: 讲清楚规则
+    if (this.boonChoices.some(id => Boons.def(id) && Boons.def(id).cursed)) {
+      Meta.tipOnce('curse', '😈 红边卡是「诅咒祝福」: 收益更强但附带代价 — 敢要的人走得远');
+    }
     Screens.showBoonChoices(this.boonChoices);
     this.paused = true;
   },
@@ -430,6 +478,7 @@ const Game = {
     }
     FX.step(p, nx, ny);
     p.x = nx; p.y = ny;
+    if (!fromAuto) AudioSys.play('step');
     this.onEnterTile();
     this.afterAction();
     return true;
@@ -458,6 +507,15 @@ const Game = {
         const idx = L.items.indexOf(it);
         if (idx >= 0) L.items.splice(idx, 1);
         AudioSys.play('pickup');
+      }
+    }
+    // 记忆碎片 (v2.3): 踩上自动阅读
+    if (L.notes && L.notes.length) {
+      const ni = L.notes.findIndex(n => n.x === p.x && n.y === p.y);
+      if (ni >= 0) {
+        const note = L.notes[ni];
+        L.notes.splice(ni, 1);
+        this.readNote(note.idx);
       }
     }
     // 地形提示
@@ -741,6 +799,9 @@ const Game = {
     if (old) p.inv.push(old);
     this.recalcStats();
     this.msg(`装备了 ${Affixes.displayName(it)}。`, 'item');
+    if (slot === 'weapon' && Items.isRanged(it)) {
+      Meta.tipOnce('ranged', `🏹 远程武器上手: 朝敌人方向按方向键即射击; 主副手按 <b>X</b> 切换`);
+    }
     AudioSys.play('pickup');
     HUD.refreshInv(this);
     this.afterAction();
@@ -1102,12 +1163,20 @@ const Game = {
     // 视野
     FOV.compute(this.level, p.x, p.y, this.fovRadius());
     // 战斗预警: 进入/脱离战斗
-    const inCombat = this.enemiesVisible().some(e => e.awake);
+    const vis = this.enemiesVisible();
+    const inCombat = vis.some(e => e.awake);
     if (inCombat && !this._inCombat) {
       FX.float(p.x, p.y - 0.9, '❗ 战斗!', '#ff7b72', true);
       AudioSys.play('alert');
     }
     this._inCombat = inCombat;
+    // 一次性教学提示: 低血量 / 精英怪 (v2.3)
+    if (p.hp > 0 && p.hp / p.maxHp < 0.4) {
+      Meta.tipOnce('lowhp', '⚠ 生命垂危! 按 <b>Q</b> 喝治疗药水, 或按 <b>R</b> 原地休息回血 (附近有敌人会中止)');
+    }
+    if (vis.some(e => e.elite && FOV.isVisible(this.level, e.x, e.y))) {
+      Meta.tipOnce('elite', '👑 金冠<b>精英怪</b>更强且带词缀 (名字就是它的招), 但必掉词条装备 — 值得打');
+    }
     // 通关检查 (15 层龙已死)
     if (!this.won && !this.endless && this.floor === 15 && !this.dragonAlive() && this.state === 'play') {
       this.win();
@@ -1348,6 +1417,37 @@ const Game = {
       if (cb) cb();
       HUD.update(this);
     });
+  },
+
+  /** Boss 登场演出 (v2.3): 横幅 + 台词 + 吼声 + 顿帧 — 觉醒瞬间由 AI/Combat 触发 */
+  bossIntro(e) {
+    if (e._introDone) return;
+    e._introDone = true;
+    const line = STORY.bossIntro[e.id] || '深渊在震颤…有强大的存在醒了过来。';
+    this.banner = { text: `⚠ 首领现身 · ${e.name}`, sub: line, t: performance.now() };
+    this.msg(`<b>${e.name}</b> 睁开了眼睛 — ${line}`, 'dmg');
+    AudioSys.play(e.id === 'boss_dragon' ? 'dragon' : 'roar');
+    this.shake(9);
+    this.hitstop(120);
+    Meta.tipOnce('boss', '⚠ Boss 战: 留意半血狂怒, 走廊卡位+远程消耗是保命关键');
+  },
+
+  /** 阅读记忆碎片 (v2.3): 跨局收录进图鉴「回响」页 */
+  readNote(idx) {
+    const text = STORY.notes[idx] || '…纸页已经残破得无法辨认。';
+    const first = Meta.collectNote(idx);
+    const n = Meta.noteCount();
+    AudioSys.play('echo');
+    FX.ring(this.player.x, this.player.y, '#b197fc');
+    this.showStory([
+      { name: `📜 记忆碎片 ${idx + 1}/15`, text: STORY.notesIntro },
+      { name: '掘金队日记', text },
+      { name: '记忆碎片', text: `回响沉入脑海。(已收录 ${n}/15 — 完整故事见「📖 图鉴 · 回响」)` },
+    ], () => {
+      if (first && n >= 15) this.msg('🧩 <b>记忆拼图完成!</b> 掘金队的故事终于完整了。', 'good');
+      HUD.update(this);
+    });
+    Meta.tipOnce('note', '📜 记忆碎片: 每层藏着一枚掘金队日记, 集齐 15 枚在图鉴拼出完整故事');
   },
 
   /** 与 NPC 交谈 */

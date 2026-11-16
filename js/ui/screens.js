@@ -14,15 +14,15 @@ const Screens = (() => {
     const $ = Util.el;
 
     // ---- 标题页 ----
-    $('btn-new-run').addEventListener('click', () => { AudioSys.play('ui'); game.newRun(null); });
+    $('btn-new-run').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => game.newRun(null, { cls })); });
     $('btn-continue').addEventListener('click', () => { AudioSys.play('ui'); game.continueRun(); });
     $('btn-title-help').addEventListener('click', () => { AudioSys.play('ui'); openHelp('title'); });
     $('btn-title-codex').addEventListener('click', () => { AudioSys.play('ui'); openCodex('bestiary', 'title'); });
     $('btn-title-talents').addEventListener('click', () => { AudioSys.play('ui'); openTalents(); });
     $('btn-title-challenge').addEventListener('click', () => { AudioSys.play('ui'); openChallenge(); });
-    $('btn-title-daily').addEventListener('click', () => { AudioSys.play('ui'); hideAll(); game.startDaily(); });
+    $('btn-title-daily').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => { hideAll(); game.startDaily(cls); }); });
     $('btn-talents-close').addEventListener('click', () => { AudioSys.play('ui'); hide('overlay-talents'); game.paused = true; });
-    $('btn-challenge-none').addEventListener('click', () => { AudioSys.play('ui'); hideAll(); game.newRun(null); });
+    $('btn-challenge-none').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => { hideAll(); game.newRun(null, { cls }); }); });
 
     // 祝福三选一: 键盘 1/2/3
     window.addEventListener('keydown', (e) => {
@@ -47,8 +47,17 @@ const Screens = (() => {
     });
 
     // ---- 死亡 ----
-    $('btn-death-retry').addEventListener('click', () => { AudioSys.play('ui'); game.newRun(); });
+    $('btn-death-retry').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => game.newRun(null, { cls })); });
     $('btn-death-menu').addEventListener('click', () => { AudioSys.play('ui'); game.toTitle(); });
+
+    // ---- 职业选择: 取消 ----
+    $('btn-class-cancel').addEventListener('click', () => {
+      AudioSys.play('ui');
+      hide('overlay-class');
+      classCb = null;
+      game.paused = true;
+      title();
+    });
 
     // ---- 通关 ----
     $('btn-win-endless').addEventListener('click', () => { AudioSys.play('ui'); game.continueEndless(); });
@@ -190,6 +199,21 @@ const Screens = (() => {
             <div class="ach-desc">${a.desc}</div>
           </div>
         </div>`).join('') + '</div>';
+    } else if (codexTab === 'echoes') {
+      // 回响: 记忆碎片收集 (v2.3)
+      const total = STORY.notes.length;
+      const got = Meta.noteCount();
+      body.innerHTML = `<div class="panel-hint" style="margin-bottom:10px">
+        📜 掘金队日记 — 三代人之前被深渊吞掉的十二个人, 只留下这些碎片。已收集 <b>${got} / ${total}</b>
+        ${got >= total ? ' · <b style="color:var(--gold)">🧩 已拼齐 — 歌声的调子, 是你自己的名字</b>' : ' · 走遍 1~15 层寻找泛紫光的纸页'}
+      </div>
+      <div class="echo-grid">` + STORY.notes.map((txt, i) => {
+        const has = Meta.hasNote(i);
+        return `<div class="echo-card ${has ? '' : 'unknown'}">
+          <div class="echo-idx">${has ? '📜' : '🔒'} 碎片 ${i + 1}</div>
+          <div class="echo-text">${has ? txt : '尚未寻回的回响…'}</div>
+        </div>`;
+      }).join('') + '</div>';
     } else {
       const r = Meta.data.records;
       const daily = Meta.data.daily;
@@ -347,19 +371,62 @@ const Screens = (() => {
     box.querySelectorAll('.cc-start').forEach(btn => {
       btn.addEventListener('click', () => {
         const c = CONFIG.CHALLENGES[parseInt(btn.dataset.idx, 10)];
-        hideAll();
-        game.newRun(c);
+        pickClass(cls => { hideAll(); game.newRun(c, { cls }); });
       });
     });
     show('overlay-challenge');
     game.paused = true;
   }
 
+  // ---------- 职业选择 (v2.3) ----------
+  let classCb = null;
+  function pickClass(cb) {
+    classCb = cb || null;
+    const box = Util.el('class-cards');
+    box.innerHTML = CONFIG.CLASSES.map((c, i) => `
+      <div class="boon-card class-card" data-idx="${i}">
+        <div class="bc-icon">${c.glyph}</div>
+        <div class="bc-name">${c.icon} ${c.name}</div>
+        <div class="bc-desc">${c.desc}</div>
+        <div class="bc-key">初始: ${ITEMS[c.weapon].glyph} ${ITEMS[c.weapon].name}</div>
+      </div>`).join('');
+    box.querySelectorAll('.class-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const c = CONFIG.CLASSES[parseInt(card.dataset.idx, 10)];
+        AudioSys.play('ui');
+        hide('overlay-class');
+        game.paused = false;
+        if (classCb) classCb(c.id);
+        classCb = null;
+      });
+    });
+    show('overlay-class');
+    game.paused = true;
+  }
+
   // ---------- 死亡 ----------
+  /** 按死因给出针对性建议 (v2.3) */
+  function deathAdvice(cause, g) {
+    const c = cause || '';
+    const notes = Meta.noteCount();
+    const noteLine = notes < 15 ? ` 另: 你已收集 ${notes}/15 枚记忆碎片 — 图鉴「回响」页等着补完。` : ' 你已集齐全部记忆碎片 — 掘金队的故事由你续写。';
+    if (/中毒/.test(c)) return '🕯 建议: 背包常备 🌿 净化药剂 (中毒/灼烧一扫而空); 毒牙蛇/铠蝎出没的层更要带。' + noteLine;
+    if (/灼烧|火|龙/.test(c)) return '🕯 建议: 对火系敌人拉开距离打; 🐲 龙鳞铠免疫灼烧, 龙掉必出。近战打龙先看好退路。' + noteLine;
+    if (/伏击|围/.test(c)) return '🕯 建议: 伏击房先退到房间角落, 让敌人排队进来 — 一次只挨一拳。' + noteLine;
+    if (/被 .+ 击杀/.test(c)) {
+      if (g && g.floor >= 10) return '🕯 建议: 深层精英更凶 — 看清名字里的词缀再决定打不打; 退到走廊口让它们排队。' + noteLine;
+      return '🕯 建议: 群战退到走廊口卡位, 一列只放一只进来; 精英怪名字里的词缀就是它的招。' + noteLine;
+    }
+    if (/状态|毒/.test(c)) return '🕯 建议: 中毒/灼烧会持续掉血 — 见到 🌿 净化药剂别犹豫, 直接囤。' + noteLine;
+    return '🕯 建议: 每层三选一祝福决定流派 — 同类祝福叠加收益远大于分散; 血量 <40% 立刻 Q 喝药。' + noteLine;
+  }
+
   function death(g, cause, score, shards) {
     hideAll();
     game = g;
     Util.el('death-cause').textContent = cause || '';
+    const tipEl = Util.el('death-tip');
+    if (tipEl) tipEl.textContent = deathAdvice(cause, g);
     const p = g.player;
     Util.el('death-stats').innerHTML = [
       ['到达层数', '第 ' + g.floor + ' 层'],
@@ -404,7 +471,7 @@ const Screens = (() => {
     init, show, hide, hideAll, title, death, win, toast,
     openHelp, openCodex, openMenu, closeMenu, closeHelp, closeCodex, refreshRecord,
     showBoonChoices, hideBoonChoices, openTalents, openChallenge,
-    showDialogue,
+    showDialogue, pickClass,
     get pausedByOverlay() { return !!document.querySelector('.overlay.visible'); },
   };
 })();

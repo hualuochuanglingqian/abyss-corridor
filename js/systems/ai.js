@@ -41,6 +41,8 @@ const AI = (() => {
         enemy.awake = true;
         FX.float(enemy.x, enemy.y, '!', '#ffd43b');
         AudioSys.play('alert');
+        // Boss 登场演出 (v2.3)
+        if (enemy.boss && !enemy._introDone && game.bossIntro) game.bossIntro(enemy);
       } else {
         // 沉睡: 20% 游走
         if (rng.chance(0.2)) stepRandom(game, enemy, rng);

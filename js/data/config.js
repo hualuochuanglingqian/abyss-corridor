@@ -3,7 +3,7 @@
 'use strict';
 
 const CONFIG = {
-  VERSION: '2.2.0',       // 与 CHANGELOG.md 同步, 标题画面显示
+  VERSION: '2.3.0',       // 与 CHANGELOG.md 同步, 标题画面显示
   TILE: 24,               // 图块像素
   MAP_W: 48,              // 地图宽 (格)
   MAP_H: 30,              // 地图高 (格)
@@ -17,6 +17,26 @@ const CONFIG = {
     ATK: 3, DEF: 0,
     ACC: 85, EVA: 5, CRIT: 5,
   },
+
+  // 开局职业: 不同初始装备与属性倾向 (v2.3)
+  // glyph 用于画布中的玩家形象; acc/eva/crit 是每次 recalcStats 的固定偏移
+  CLASSES: [
+    {
+      id: 'warrior', name: '战士', icon: '🗡️', glyph: '🤺', weapon: 'w_iron',
+      desc: '铁剑开局 · 生命 +14, 防御 +1, 暴击 +5 — 正面硬刚, 走廊里一夫当关。',
+      hp: 14, def: 1, acc: 3, eva: 0, crit: 5, mp: 0, fov: 0,
+    },
+    {
+      id: 'ranger', name: '游侠', icon: '🏹', glyph: '🧝', weapon: 'w_bow1',
+      desc: '短弓开局 · 闪避 +8, 命中 +8, 视野 +1 — 放风筝大师, 保持距离就是安全。',
+      hp: 0, def: 0, acc: 8, eva: 8, crit: 2, mp: 4, fov: 1,
+    },
+    {
+      id: 'mage', name: '法师', icon: '🔥', glyph: '🧙', weapon: 'w_wand1',
+      desc: '学徒法杖开局 · 法力 +16, 生命 -6 — 技能流派, 火球闪电雪崩一样砸。',
+      hp: -6, def: 0, acc: 2, eva: 3, crit: 0, mp: 16, fov: 0,
+    },
+  ],
 
   // 升级曲线: 升到 L 级所需经验 = 18 * L^1.35
   xpNeed(level) { return Math.round(18 * Math.pow(level, 1.35)); },

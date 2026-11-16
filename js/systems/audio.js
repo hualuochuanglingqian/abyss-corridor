@@ -185,6 +185,18 @@ const AudioSys = (() => {
     victory() {
       [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.5, { type: 'triangle', vol: 0.12, delay: i * 0.14 }));
     },
+    // v2.3: 脚步 (极轻, 仅手动移动触发)
+    step() { noise(0.05, { freq: 620, sweep: 240, vol: 0.035, q: 0.7 }); },
+    // v2.3: 低血量心跳 (双闷响)
+    heartbeat() {
+      tone(58, 0.14, { type: 'sine', vol: 0.22, slideTo: 40 });
+      tone(52, 0.16, { type: 'sine', vol: 0.18, slideTo: 36, delay: 0.17 });
+    },
+    // v2.3: 记忆碎片拾取音 (空灵琶音)
+    echo() {
+      [880, 1174, 1568].forEach((f, i) => tone(f, 0.5, { type: 'sine', vol: 0.07, delay: i * 0.12 }));
+      tone(440, 0.9, { type: 'sine', vol: 0.05, delay: 0.1 });
+    },
   };
 
   function play(name) {

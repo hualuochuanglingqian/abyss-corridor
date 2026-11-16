@@ -276,6 +276,9 @@ const MapGen = (() => {
     // 交互 NPC: 预言者 / 被困旅者 / 神秘石像
     placeNPCs(L, rng, floor);
 
+    // 记忆碎片: 掘金队日记, 每层一枚 (1~15 层, 已收录的不再出现)
+    placeNotes(L, rng, floor);
+
     // 伏击房 (关门打狗)
     pickAmbushRooms(L, rng);
 
@@ -570,8 +573,7 @@ const MapGen = (() => {
 
   /** 挑选伏击房 (关门打狗): 中等大小、无特殊设施、非出生房/商店/Boss 层 */
   /** 交互 NPC: 预言者 / 被困旅者 / 神秘石像 — 只放开阔可达处, 不堵路 */
-  function placeNPCs(L, rng, floor) {
-    if (floor < 2 || L.theme.boss) return;
+  function placeNPCs(L, rng, floor) {    if (floor < 2 || L.theme.boss) return;
     const used = [];
     const okSpot = (x, y) => {
       const t = L.tile(x, y);
@@ -601,6 +603,23 @@ const MapGen = (() => {
     if (rng.chance(0.4)) put(T.ORACLE);
     if (rng.chance(0.4)) put(T.CAPTIVE);
     if (floor >= 3 && rng.chance(0.35)) put(T.STATUE);
+  }
+
+  /** 记忆碎片 (v2.3): 每层一枚掘金队日记, 已收录的不刷 (Meta.notes) */
+  function placeNotes(L, rng, floor) {
+    L.notes = [];
+    if (floor < 1 || floor > CONFIG.MAX_FLOOR) return;
+    const idx = floor - 1;
+    if (typeof Meta !== 'undefined' && Meta.hasNote && Meta.hasNote(idx)) return;
+    const spots = rng.shuffled(spawnableTiles(L, 6, 38));
+    for (const s of spots) {
+      if (L.items.some(it => it.x === s.x && it.y === s.y)) continue;
+      if (L.golds.some(g => g.x === s.x && g.y === s.y)) continue;
+      if (s.x === L.spawn.x && s.y === L.spawn.y) continue;
+      clearEnemyAt(L, s.x, s.y);
+      L.notes.push({ x: s.x, y: s.y, idx });
+      return;
+    }
   }
 
   function pickAmbushRooms(L, rng) {

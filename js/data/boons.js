@@ -22,10 +22,19 @@ const BOONS = {
   slayer:     { name: '破军',   icon: '⚔️', desc: '对 Boss 伤害 +25%', flag: { bossDmgMul: 1.25 } },
   pyromancer: { name: '烈焰亲和', icon: '🔥', desc: '火球术伤害 +60%', flag: { fireMul: 1.6 } },
 
+  // ---- v2.3 流派祝福 ----
+  venom:      { name: '毒刃',   icon: '☠️', desc: '攻击 20% 使敌人中毒 (每回合伤害随攻击成长)', flag: { poisonOnHit: 0.2 } },
+  ember:      { name: '燃刃',   icon: '🔥', desc: '攻击 20% 点燃敌人 (2 回合持续伤害)', flag: { burnOnHit: 0.2 } },
+  flurry:     { name: '连击',   icon: '⚔️', desc: '攻击 18% 概率追加一击', flag: { comboOnHit: 0.18 } },
+  breaker:    { name: '破甲',   icon: '🔨', desc: '无视敌人一半防御 — 铠蝎岩蟹的天敌', flag: { pierce: 1 } },
+  lifebloom:  { name: '回春',   icon: '🌿', desc: '每回合回复 1 生命', flag: { regen: 1 } },
+  executioner:{ name: '处决者', icon: '🪓', desc: '血量低于 30% 的敌人受到伤害 +50% — 收割者流派', flag: { execDmg: 0.5 } },
+
   // ---- 诅咒祝福: 高风险高收益 (40% 概率混入三选一) ----
   devil:     { name: '恶魔契约', icon: '😈', cursed: true, desc: '攻击 +8; 代价: 每层开始中毒 3 回合', stat: { atk: 8 }, flag: { poisonPerFloor: 3 } },
   blood_pact:{ name: '血誓',     icon: '🩸', cursed: true, desc: '暴击 +25%; 代价: 生命上限 -15%', stat: { crit: 25 }, flag: { hpPct: -0.15 } },
   titan:     { name: '泰坦之诅', icon: '🗿', cursed: true, desc: '防御 +6; 代价: 闪避 -25', stat: { def: 6, eva: -25 } },
+  gluttony:  { name: '无底之胃', icon: '🍖', cursed: true, desc: '金币 +60%; 代价: 药水效果减半 — 贪婪者的胃', flag: { goldMul: 1.6, potionMul: -0.5 } },
 };
 
 const Boons = {

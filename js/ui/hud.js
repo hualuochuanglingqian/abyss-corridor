@@ -85,7 +85,9 @@ const HUD = (() => {
     els.seed.textContent = `🌱 ${game.seed}`;
     els.seed.title = '本局种子: ' + game.seed;
 
-    els.name.textContent = p.name;
+    // 名字 + 职业角标 (v2.3)
+    const clsDef = p.cls && CONFIG.CLASSES ? CONFIG.CLASSES.find(c => c.id === p.cls) : null;
+    els.name.textContent = clsDef ? `${clsDef.icon} ${clsDef.name}` : p.name;
     els.lv.textContent = 'Lv.' + p.level;
     els.hpBar.style.width = Util.clamp(p.hp / p.maxHp * 100, 0, 100) + '%';
     els.hpText.textContent = `${p.hp} / ${p.maxHp}`;

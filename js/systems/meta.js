@@ -24,6 +24,8 @@ const ACHIEVEMENTS = [
   { id: 'challenge_win',name: '因子挑战者',   icon: '🎯', desc: '在挑战模式下通关深渊之龙' },
   { id: 'daily_play',   name: '每日打卡',     icon: '☀️', desc: '完成一次每日挑战 (死亡或通关都算)' },
   { id: 'cursed_pact',  name: '敢于诅咒',     icon: '😈', desc: '接受一张诅咒祝福' },
+  { id: 'elite_10',     name: '精英收割机',   icon: '👑', desc: '单局击败 10 只精英怪' },
+  { id: 'echoes_full',  name: '记忆拼图',     icon: '🧩', desc: '收齐全部 15 枚记忆碎片' },
 ];
 
 const META_KEY = 'abyss_corridor_meta_v1';
@@ -37,6 +39,8 @@ const Meta = (() => {
     shards: 0,          // 魂晶 (局外货币)
     talents: {},        // 局外天赋等级
     settings: { camera: 'fixed', shake: true },  // 视觉偏好
+    notes: {},          // 记忆碎片收集 idx -> true (跨局持久)
+    tips: {},           // 一次性教学提示 key -> true
     version: 1,
   };
   let loaded = false;
@@ -52,6 +56,8 @@ const Meta = (() => {
         if (!isFinite(data.records.totalKills)) data.records.totalKills = 0;
         data.shards = data.shards || 0;
         data.talents = data.talents || {};
+        data.notes = d.notes || {};
+        data.tips = d.tips || {};
         data.settings = Object.assign({ camera: 'fixed', shake: true }, d.settings || {});
       }
     } catch (e) { /* 用默认值 */ }
@@ -97,6 +103,27 @@ const Meta = (() => {
     save();
   }
 
+  // ---------- 记忆碎片 (v2.3) ----------
+  function hasNote(idx) { return !!data.notes[idx]; }
+  function noteCount() { return Object.keys(data.notes).length; }
+
+  function collectNote(idx) {
+    if (data.notes[idx]) return false;
+    data.notes[idx] = true;
+    if (noteCount() >= 15) unlock('echoes_full');
+    save();
+    return true;
+  }
+
+  // ---------- 一次性教学提示 ----------
+  function tipOnce(key, text, ms) {
+    if (data.tips[key]) return false;
+    data.tips[key] = true;
+    save();
+    if (text && typeof HUD !== 'undefined') HUD.toast(text, ms || 4200);
+    return true;
+  }
+
   /** 局内检查点 (击杀/金币/层数变化时调用) */
   function check(game) {
     const p = game.player;
@@ -108,6 +135,7 @@ const Meta = (() => {
     if (game.floor >= 5) unlock('reach_f5');
     if (game.floor >= 10) unlock('reach_f10');
     if (game.floor >= 20) unlock('endless_20');
+    if ((game.stats && game.stats.eliteKills) >= 10) unlock('elite_10');
     const deep = Math.max(data.records.deepest, game.floor);
     if (deep !== data.records.deepest) { data.records.deepest = deep; save(); }
   }
@@ -181,6 +209,7 @@ const Meta = (() => {
     get data() { return data; },
     load, save, unlock, recordKill, hasAchievement, bestiaryCount,
     chestOpened, newRun, check, gameOver, buyTalent, listAchievements, listBestiary,
+    hasNote, noteCount, collectNote, tipOnce,
     get loaded() { return loaded; },
   };
 })();

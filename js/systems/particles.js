@@ -77,6 +77,17 @@ const FX = (() => {
     floats.push({ x, y: y - 0.3, text: '💀', color: '#9aa5b5', life: 1.1, maxLife: 1.1, big: true, emoji: true });
   }
 
+  /** 魂魄上升: 击杀后一团发光碎片缓缓升空 (v2.3 打击感) */
+  function soul(x, y, color) {
+    for (let i = 0; i < 7; i++) {
+      spawnParticle(x + rand(-0.3, 0.3), y + rand(-0.2, 0.2), {
+        vx: rand(-0.15, 0.15), vy: rand(-1.4, -0.6),
+        life: rand(0.6, 1.2), size: rand(0.07, 0.16),
+        color: i % 2 ? color : '#fff3bf', type: 'ember', drag: 0.985,
+      });
+    }
+  }
+
   function boom(x, y, big) {
     const n = big ? 46 : 26;
     const cols = ['#ffd43b', '#ff9538', '#ff5a4a', '#fff3bf'];
@@ -281,7 +292,7 @@ const FX = (() => {
   }
 
   return {
-    burst, hit, hurt, death, boom, flame, trail, ring, nova, levelUp,
+    burst, hit, hurt, death, soul, boom, flame, trail, ring, nova, levelUp,
     projectile, float, lunge, step, shake, update, draw, clear,
     get shakeMag() { return shakeMag; },
     get shakeT() { return shakeT; },

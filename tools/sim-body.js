@@ -619,6 +619,171 @@ simLog('\n=== 4d. 双生Boss/每日确定性/诅咒祝福 ===');
   simAssert('totalKills' in Meta.data.records && 'challengeBest' in Meta.data.records, '纪录字段缺失 (totalKills/challengeBest)');
 }
 
+// ---------- 4e. v2.3: 职业 / 精英词缀 / 新祝福 / 记忆碎片 ----------
+simLog('\n=== 4e. v2.3 职业/精英词缀/新祝福/记忆碎片 ===');
+{
+  // 职业表完整性
+  simAssert(Array.isArray(CONFIG.CLASSES) && CONFIG.CLASSES.length === 3, '职业: 应有 3 个职业');
+  const clsIds = new Set();
+  for (const c of CONFIG.CLASSES) {
+    clsIds.add(c.id);
+    simAssert(ITEMS[c.weapon] && ITEMS[c.weapon].kind === 'weapon', `职业: ${c.id} 初始武器 ${c.weapon} 非法`);
+    simAssert(isFinite(c.hp) && isFinite(c.mp) && isFinite(c.acc) && isFinite(c.eva) && isFinite(c.crit), `职业: ${c.id} 属性字段缺失`);
+    simAssert(typeof c.glyph === 'string' && c.glyph.length >= 1, `职业: ${c.id} 画布形象缺失`);
+  }
+  simAssert(clsIds.size === 3, '职业: id 应互不相同');
+  simLog('职业: ' + CONFIG.CLASSES.map(c => `${c.name}(${ITEMS[c.weapon].name})`).join(' / '));
+
+  // 精英词缀: 精英必有词缀, 名字带前缀, flag 确实合并
+  let elites = 0, withAffix = 0, flagApplied = 0;
+  for (const seed of ['AFF-A', 'AFF-B', 'AFF-C']) {
+    for (let f = 2; f <= 14; f++) {
+      const L = MapGen.generate(seed, f);
+      for (const e of L.enemies) {
+        if (!e.elite) continue;
+        elites++;
+        if (e.eliteAff && ELITE_AFFIXES[e.eliteAff.id]) withAffix++;
+        if (e.name.startsWith(e.eliteAff.name + '·')) flagApplied++;
+        if (e.eliteAff.id === 'vampiric') simAssert(e.flag.vampiric > 0, '词缀: 虹吸 flag 未合并');
+        if (e.eliteAff.id === 'thorny') simAssert(e.flag.thornArmor > 0, '词缀: 荆棘 flag 未合并');
+        if (e.eliteAff.id === 'swift') simAssert(e.speed > ENEMIES[e.id].speed, '词缀: 迅捷未加速');
+        if (e.eliteAff.id === 'sturdy') simAssert(e.def > ENEMIES[e.id].def, '词缀: 坚韧未加防');
+      }
+    }
+  }
+  simAssert(elites > 0 && withAffix === elites && flagApplied === elites,
+    `词缀: ${elites} 只精英中 ${withAffix} 有词缀 / ${flagApplied} 名字正确`);
+  simLog(`精英词缀覆盖: ${withAffix}/${elites} 只精英全部带词缀`);
+  // 词缀不会落到普通怪身上
+  const plain = Enemies.mk('rat', 1, new RNG('plain'));
+  simAssert(!plain.eliteAff && plain.name === ENEMIES.rat.name, '词缀: 普通怪不应带词缀');
+
+  // 新祝福: 属性汇总
+  const nb = { boons: {}, baseMaxHp: 100, baseMaxMp: 20, baseAtk: 3, baseDef: 0, equip: {} };
+  for (const id of ['venom', 'ember', 'flurry', 'breaker', 'lifebloom', 'executioner', 'gluttony']) {
+    simAssert(BOONS[id], `新祝福: ${id} 缺失`);
+    Boons.give(nb, id);
+  }
+  const nbb = Boons.bonus(nb);
+  simAssert(nbb.flag.poisonOnHit === 0.2 && nbb.flag.burnOnHit === 0.2 && nbb.flag.comboOnHit === 0.18
+    && nbb.flag.pierce === 1 && nbb.flag.regen === 1 && nbb.flag.execDmg === 0.5,
+    `新祝福: flag 汇总异常 (${JSON.stringify(nbb.flag)})`);
+  simAssert(nbb.flag.goldMul === 1.6 && nbb.flag.potionMul === -0.5, `无底之胃: 金币/药水 flag 异常 (${nbb.flag.goldMul}/${nbb.flag.potionMul})`);
+  simAssert(Boons.all().filter(id => BOONS[id].cursed).length >= 4, '诅咒祝福至少 4 张 (新增无底之胃)');
+
+  // 处决者: 残血敌人受伤加深
+  {
+    const eFull = Enemies.mk('rat', 1, new RNG('ex1'));
+    const eLow = Enemies.mk('rat', 1, new RNG('ex2'));
+    eLow.hp = Math.max(1, Math.round(eLow.maxHp * 0.2));
+    const pex = simPlayer(1);
+    const g1 = simGame(pex, { floor: 1, enemies: [], items: [], golds: [] }, 'EX-A');
+    pex.flags = { execDmg: 0.5 };  // simRecalc 会覆盖 flags, 必须在 simGame 之后设置
+    const r1 = Combat.dealPlayerHit(g1, eFull, 1);
+    const g2 = simGame(pex, { floor: 1, enemies: [], items: [], golds: [] }, 'EX-A'); // 同种子 → 同浮动/暴击
+    pex.flags = { execDmg: 0.5 };
+    const r2 = Combat.dealPlayerHit(g2, eLow, 1);
+    simAssert(Math.abs(r2.dmg - r1.dmg * 1.5) <= 1, `处决者: 残血伤害应 ≈×1.5 (${r2.dmg} vs ${Math.round(r1.dmg * 1.5)})`);
+    simLog(`处决者验证: 满血 ${r1.dmg} → 残血 ${r2.dmg} (同种子同浮动)`);
+  }
+
+  // 虹吸词缀: 敌人攻击你后回血; 荆棘词缀: 你近战摸它掉血
+  {
+    const pv = simPlayer(5);
+    const ev = Enemies.mk('rat', 5, new RNG('va'));
+    ev.elite = true;
+    ev.eliteAff = { id: 'vampiric', name: '虹吸', icon: '🩸' };
+    ev.flag.vampiric = 0.5;
+    ev.name = '虹吸·巨鼠';
+    const gv = simGame(pv, { floor: 5, enemies: [], items: [], golds: [] }, 'VA-A');
+    pv.eva = 0;   // 尽量命中 (95% 上限), 循环兜底随机 miss
+    // 先把敌人打到半血, 否则回血被 maxHp 上限卡住
+    const wounded = Math.max(1, Math.round(ev.maxHp * 0.5));
+    let hitLanded = false, playerHurt = false;
+    for (let i = 0; i < 24 && !hitLanded; i++) {
+      ev.hp = wounded;
+      pv.hp = pv.maxHp;
+      Combat.enemyAttack(gv, ev);
+      if (ev.hp > wounded) hitLanded = true;
+      if (pv.hp < pv.maxHp || gv.state === 'dead') playerHurt = true;
+    }
+    simAssert(hitLanded, '虹吸: 敌人攻击后应回血 (24 次尝试无一命中?)');
+    simAssert(playerHurt, '虹吸: 玩家应受到伤害');
+  }
+  {
+    const pt = simPlayer(3);
+    const gt = simGame(pt, { floor: 3, enemies: [], items: [], golds: [] }, 'TH-A');
+    pt.hp = pt.maxHp;  // simRecalc 后再补满
+    const et = Enemies.mk('rat', 3, new RNG('th'));
+    et.flag.thornArmor = 4;
+    let hurt = false;
+    for (let i = 0; i < 24 && !hurt; i++) {
+      pt.hp = pt.maxHp;
+      et.hp = et.maxHp;
+      Combat.playerAttack(gt, et);
+      if (pt.hp < pt.maxHp || gt.state === 'dead') hurt = true;
+    }
+    simAssert(hurt, '荆棘甲: 近战摸它应被扎 (24 次尝试均未触发?)');
+    simLog('虹吸/荆棘词缀: 生效验证通过');
+  }
+
+  // 记忆碎片: 每层一枚 (未收录时), 收录后不再出现
+  Meta.data.notes = {};
+  let noteFloors = 0, noteTotal = 0;
+  for (const seed of ['NOTE-A', 'NOTE-B']) {
+    for (let f = 1; f <= 15; f++) {
+      const L = MapGen.generate(seed, f);
+      noteTotal += (L.notes || []).length;
+      if ((L.notes || []).length === 1) noteFloors++;
+      for (const n of (L.notes || [])) {
+        simAssert(n.idx === f - 1, `${seed} F${f}: 碎片 idx 应为 ${f - 1}`);
+        simAssert(L.walkable(n.x, n.y) && !(n.x === L.spawn.x && n.y === L.spawn.y), `${seed} F${f}: 碎片位置非法`);
+        simAssert(Array.isArray(L.items) && !L.items.some(it => it.x === n.x && it.y === n.y), `${seed} F${f}: 碎片与物品重叠`);
+      }
+    }
+  }
+  simAssert(noteTotal === 30, `记忆碎片: 30 层应有 30 枚 (实际 ${noteTotal})`);
+  Meta.collectNote(0); Meta.collectNote(4); Meta.collectNote(14);
+  const Ln = MapGen.generate('NOTE-A', 1);
+  simAssert(Ln.notes.length === 0, '记忆碎片: 已收录的第 1 层不应再刷');
+  const n15 = MapGen.generate('NOTE-A', 15);
+  simAssert(n15.notes.length === 0, '记忆碎片: 已收录的第 15 层不应再刷');
+  simAssert(Meta.noteCount() === 3, `记忆碎片: 计数应 3 (${Meta.noteCount()})`);
+  Meta.data.notes = {}; // 还原
+  simLog(`记忆碎片布点: ${noteFloors}/30 层各 1 枚 (其余为 Boss 层无点或已过滤)`);
+
+  // 剧情: 15 枚碎片文案 + Boss 台词
+  simAssert(STORY.notes.length === 15, `story: 记忆碎片应 15 条 (${STORY.notes.length})`);
+  simAssert(STORY.bossIntro && STORY.bossIntro.boss_butcher && STORY.bossIntro.boss_king && STORY.bossIntro.boss_dragon, 'story: Boss 台词缺失');
+  simAssert(STORY.notes.every(t => typeof t === 'string' && t.length > 20), 'story: 碎片文案过短');
+
+  // 存档: cls 字段与 notes 序列化
+  {
+    const L = MapGen.generate('SAVE-CLS', 3);
+    const p = simPlayer(3);
+    p.cls = 'ranger'; p.clsAcc = 8; p.clsEva = 8; p.clsCrit = 2;
+    p.x = L.spawn.x; p.y = L.spawn.y;
+    const g = simGame(p, L, 'SAVE-CLS');
+    g.seed = 'SAVE-CLS'; g.floor = 3;
+    const snap = SaveSys.snapshot(g);
+    simAssert(snap.player.cls === 'ranger' && snap.player.clsAcc === 8, '存档: cls 字段未序列化');
+    simAssert(Array.isArray(snap.level.notes), '存档: level.notes 未序列化');
+    SaveSys.save(g);   // 落盘后 load 才能读到
+    const d = SaveSys.load();
+    simAssert(d && d.player.cls === 'ranger' && Array.isArray(d.levelObj.notes), '存档: cls/notes 读档不一致');
+    SaveSys.clear();
+    simLog('存档: cls/notes 序列化通过');
+  }
+
+  // 教学提示: 一次性
+  Meta.data.tips = {};
+  simAssert(Meta.tipOnce('t1', null) === true, '提示: 首次应返回 true');
+  simAssert(Meta.tipOnce('t1', null) === false, '提示: 二次应返回 false');
+  simAssert(Meta.data.tips.t1 === true, '提示: 状态未持久化');
+  Meta.data.tips = {};
+  simLog('教学提示: 一次性语义通过');
+}
+
 simLog('\n=== 结果 ===');
 if (simFailures === 0) simLog('✅ 全部检查通过');
 else simLog(`❌ ${simFailures} 项失败`);

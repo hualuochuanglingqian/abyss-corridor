@@ -144,6 +144,17 @@ const ENEMY_TUNING = {
   bossAtkMul: 1.0,
 };
 
+// 精英词缀 (v2.3): 精英怪随机获得一条, 名字即威胁 — 借鉴 Diablo 精英词缀的"读名知险"
+// apply 在 mk() 基础属性生成后调用; flag 合并进敌人 flag (combat.js 消费)
+const ELITE_AFFIXES = {
+  swift:    { name: '迅捷', icon: '💨', apply(e) { e.speed = Math.min(2.5, e.speed + 0.5); } },
+  sturdy:   { name: '坚韧', icon: '🪨', apply(e) { e.maxHp = Math.round(e.maxHp * 1.25); e.hp = e.maxHp; e.def += 3; } },
+  blazing:  { name: '灼热', icon: '🔥', apply(e, flag) { flag.burnOnHit = 0.35; } },
+  venomous: { name: '剧毒', icon: '☠️', apply(e, flag) { flag.poisonOnHit = 0.5; } },
+  vampiric: { name: '虹吸', icon: '🩸', apply(e, flag) { flag.vampiric = 0.5; } },
+  thorny:   { name: '荆棘', icon: '🌵', apply(e, flag) { flag.thornArmor = 3 + Math.round(e.level / 4); } },
+};
+
 const Enemies = {
   _seq: 1,
 
@@ -183,6 +194,16 @@ const Enemies = {
     e.atk = Math.max(1, Math.round(d.atk * atkScale));
     e.def = d.def + (opts.chal && opts.chal.defAdd ? opts.chal.defAdd : 0) + (e.elite ? 1 : 0);
     e.eva += e.elite ? 5 : 0;
+    // 精英词缀 (v2.3): 随机获得一条, 名字即威胁
+    if (e.elite) {
+      const affKey = rng.pick(Object.keys(ELITE_AFFIXES));
+      const aff = ELITE_AFFIXES[affKey];
+      e.eliteAff = { id: affKey, name: aff.name, icon: aff.icon };
+      const affFlag = {};
+      aff.apply(e, affFlag);
+      Object.assign(e.flag, affFlag);
+      e.name = aff.name + '·' + e.name;
+    }
     const xMul = (e.elite ? 2.5 : 1) * (opts.chal && opts.chal.rewardMul ? opts.chal.rewardMul : 1);
     e.xp = Math.round(d.xp * (1 + deep * 0.04) * xMul);
     e.gold = d.gold ? [Math.round(d.gold[0] * (1 + deep * 0.04) * xMul), Math.round(d.gold[1] * (1 + deep * 0.06) * xMul)] : null;

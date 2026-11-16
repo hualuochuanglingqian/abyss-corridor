@@ -180,6 +180,13 @@ const Render = (() => {
 
     // ---- 屏幕空间 UI ----
     drawLowHpVignette(game, now);
+    // 换层渐隐过渡 (v2.3)
+    if (game._fade > 0) {
+      ctx.save();
+      ctx.fillStyle = `rgba(2,4,8,${Math.min(0.92, game._fade)})`;
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.restore();
+    }
     if (game.flashRed > 0) {
       ctx.save();
       ctx.fillStyle = `rgba(160,20,30,${Math.min(0.2, game.flashRed * 0.22)})`;
@@ -627,6 +634,16 @@ const Render = (() => {
       }
       ctx.restore();
     }
+    // 记忆碎片 (v2.3): 泛着紫光的旧纸页
+    if (L.notes) {
+      for (const n of L.notes) {
+        if (n.x < bx0 || n.x > bx1 || n.y < by0 || n.y > by1) continue;
+        if (!L.explored[n.y * W + n.x]) continue;
+        const pulse = 0.6 + 0.4 * Math.sin(now / 300 + n.x);
+        blitGlow(ctx, n.x, n.y, 1.0, '#b197fc', 0.3 * pulse);
+        drawEmoji('📜', n.x * TS + TS / 2, n.y * TS + TS / 2, now, 0.8, 'rgba(177,151,252,0.8)');
+      }
+    }
   }
 
   // ---------- 实体 ----------
@@ -679,7 +696,14 @@ const Render = (() => {
 
     // 战斗状态: 环色随敌情变化 (蓝=安全, 红=被怪盯上)
     const inCombat = game.enemiesVisible && game.enemiesVisible().some(e => e.awake && e.hp > 0);
-    drawEmoji('🧙', px, py, now, 1.06, inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)');
+    // 职业形象 (v2.3): 战士🤺 / 游侠🧝 / 法师🧙
+    const cls = p.cls && CONFIG.CLASSES ? CONFIG.CLASSES.find(c => c.id === p.cls) : null;
+    const pGlyph = cls ? cls.glyph : '🧙';
+    // 受击闪白 (v2.3)
+    const flashed = p.flash && (now - p.flash) < 130;
+    if (flashed) blitGlow(ctx, p.x + ox, p.y + oy, 0.8, '#ffffff', 0.55);
+    drawEmoji(pGlyph, px, py, now, flashed ? 1.12 : 1.06,
+      flashed ? 'rgba(255,255,255,0.95)' : (inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)'));
     ctx.save();
     ctx.strokeStyle = inCombat ? 'rgba(255,110,90,0.7)' : 'rgba(165,200,255,0.65)';
     ctx.lineWidth = 1.6;
@@ -717,7 +741,11 @@ const Render = (() => {
       ctx.ellipse(px, py + TS * 0.32, TS * (e.boss ? 0.4 : 0.28), TS * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    drawEmoji(e.glyph, px, py, now, e.boss ? 1.2 : 0.98, isVis && e.boss ? 'rgba(255,90,60,0.8)' : null);
+    // 受击闪白 (v2.3): 白色光晕 + 放大 + 白描边, 130ms
+    const flashed = isVis && e.flash && (now - e.flash) < 130;
+    if (flashed) blitGlow(ctx, e.x + ox, e.y + oy, 0.85, '#ffffff', 0.6);
+    drawEmoji(e.glyph, px, py, now, flashed ? (e.boss ? 1.3 : 1.08) : (e.boss ? 1.2 : 0.98),
+      flashed ? 'rgba(255,255,255,0.95)' : (isVis && e.boss ? 'rgba(255,90,60,0.8)' : null));
 
     if (Status.has(e, 'frozen')) {
       ctx.globalAlpha = 0.5;
@@ -727,7 +755,11 @@ const Render = (() => {
       ctx.fill();
       ctx.globalAlpha = 1;
     }
-    if (isVis && e.elite) drawEmoji('👑', px, py - TS * 0.82, now, 0.55);
+    if (isVis && e.elite) {
+      drawEmoji('👑', px, py - TS * 0.82, now, 0.55);
+      // 精英词缀角标 (v2.3): 戴在名字里的威胁
+      if (e.eliteAff) drawEmoji(e.eliteAff.icon, px + TS * 0.52, py - TS * 0.8, now, 0.42);
+    }
     if (isVis && e.hp < e.maxHp) {
       const bw = e.boss ? TS * 1.6 : TS * 1.1;
       const bx = px - bw / 2, by = py - TS * 0.52;
@@ -880,6 +912,14 @@ const Render = (() => {
       mctx.fillStyle = '#d9ab4a';
       mctx.fillRect(it.x * s, it.y * s, Math.ceil(s), Math.ceil(s));
     }
+    // 记忆碎片: 紫点 (v2.3)
+    if (L.notes) {
+      mctx.fillStyle = '#b197fc';
+      for (const n of L.notes) {
+        if (!L.explored[n.y * W + n.x]) continue;
+        mctx.fillRect(n.x * s, n.y * s, Math.ceil(s), Math.ceil(s));
+      }
+    }
   }
 
   function drawMinimap(game) {
@@ -950,6 +990,18 @@ const Render = (() => {
         ? Math.max(1, Math.round((e.ranged.dmg || e.atk) - Math.floor(game.player.def / 2)))
         : Math.max(1, Math.round(Status.atkOf(e) - game.player.def));
       lines = [`${e.glyph} ${e.name}`, `HP ${e.hp}/${e.maxHp} · 攻 ${Status.atkOf(e)} · 防 ${e.def}`, e.boss ? '★ 首领' : `经验 +${e.xp}`, `⚔ 下次攻击 ≈ ${nextDmg}`];
+      // 精英词缀说明 (v2.3)
+      if (e.eliteAff) {
+        const affTip = {
+          swift: '词缀·迅捷: 比回合多行动半次',
+          sturdy: '词缀·坚韧: 额外血量与防御',
+          blazing: '词缀·灼热: 打你会被点燃',
+          venomous: '词缀·剧毒: 打你会中毒',
+          vampiric: '词缀·虹吸: 它打你回血',
+          thorny: '词缀·荆棘: 近战摸它会被扎',
+        }[e.eliteAff.id];
+        if (affTip) lines.push('👑 ' + affTip);
+      }
     } else {
       const its = L.itemsAt(m.x, m.y);
       if (its.length) {

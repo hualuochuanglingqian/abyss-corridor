@@ -122,6 +122,7 @@ window.addEventListener('unhandledrejection', function (e) {
   <div class="ov-box death-box">
     <div class="death-title">你倒在了深渊里</div>
     <div id="death-cause" class="death-cause">—</div>
+    <div id="death-tip" class="death-tip"></div>
     <div id="death-stats" class="death-stats"></div>
     <div class="menu-btns">
       <button id="btn-death-retry" class="mbtn primary">🕯 再次下潜 (新的地牢)</button>
@@ -178,7 +179,10 @@ window.addEventListener('unhandledrejection', function (e) {
           <li>🏹 <b>远程武器</b>(弓/法杖/回旋刃): 朝敌人方向按键即射击; 主副手按 <b>X</b> 切换, 法杖每次发射耗 2 法力。</li>
           <li>🧬 掉落装备可能带随机<b>词条</b>(吸血/灼烧/连击/破甲…), 名字里会显示。</li>
           <li>✨ 每层开始<b>三选一祝福</b>, 可叠加 — 想好这局要玩什么流派。</li>
-          <li>👑 金色光环的是<b>精英怪</b>, 更强但必掉好货; 🚪 某些房间进门会<b>关门打狗</b>, 清场开宝箱。</li>
+          <li>⚔️ 开局选择<b>职业</b>: 战士硬刚 / 游侠放风筝 / 法师技能轰炸 — 每种都值得重玩。</li>
+          <li>👑 金色光环的是<b>精英怪</b>, 更强但必掉好货; 名字里的<b>词缀</b>(迅捷/灼热/虹吸…)就是它的招 — 悬停可查。🚪 某些房间进门会<b>关门打狗</b>, 清场开宝箱。</li>
+          <li>📜 每层藏着一枚泛紫光的<b>记忆碎片</b>(掘金队日记), 集齐 15 枚在图鉴「回响」拼出完整故事。</li>
+          <li>🪓 「处决者」祝福专收残血; 😈 「无底之胃」金币+60% 但药水减半 — 诅咒不全是坏事。</li>
           <li>💎 死亡/通关结算<b>魂晶</b>, 回主菜单可在「天赋」中永久变强。</li>
           <li>🎯 挑战因子 (疯狂/浓雾/坚壁) 更难, 魂晶收益 ×1.5。</li>
         </ul>
@@ -193,6 +197,7 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="ov-title">图鉴 · 成就 · 纪录</div>
     <div class="codex-tabs">
       <button class="ctab active" data-tab="bestiary">👹 敌人图鉴</button>
+      <button class="ctab" data-tab="echoes">📜 回响</button>
       <button class="ctab" data-tab="achievements">🏅 成就</button>
       <button class="ctab" data-tab="records">📈 纪录</button>
     </div>
@@ -224,6 +229,15 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="panel-hint" style="margin-bottom:12px">选择一个挑战因子开启新的一局 — 更难, 但魂晶收益 ×1.5</div>
     <div id="challenge-cards" class="challenge-cards"></div>
     <div class="menu-btns"><button id="btn-challenge-none" class="mbtn">不用了, 普通开局</button></div>
+  </div>
+</div>
+
+<div id="overlay-class" class="overlay">
+  <div class="ov-box">
+    <div class="ov-title">⚔ 选择你的出身</div>
+    <div class="panel-hint" style="margin-bottom:6px">职业决定初始装备与属性倾向 — 祝福仍照常三选一, 流派由你构建</div>
+    <div id="class-cards" class="boon-cards"></div>
+    <div class="menu-btns"><button id="btn-class-cancel" class="mbtn">返回标题</button></div>
   </div>
 </div>
 

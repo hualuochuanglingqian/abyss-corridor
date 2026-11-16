@@ -35,6 +35,8 @@ const Combat = (() => {
     let effDef = enemy.def;
     if (f.pierce) effDef *= 0.5;
     if (enemy.boss && f.bossDmgMul) dmg *= f.bossDmgMul;
+    // 处决者祝福: 残血敌人受伤加深
+    if (f.execDmg && enemy.maxHp && enemy.hp / enemy.maxHp < 0.3) dmg *= 1 + f.execDmg;
     dmg = Math.max(1, Math.round(dmg - effDef));
 
     hurtEnemy(game, enemy, dmg, { type: 'melee', crit });
@@ -98,6 +100,13 @@ const Combat = (() => {
     if (t && t.flag && t.flag.frostAura && rng.chance(t.flag.frostAura) && enemy.hp > 0 && !enemy.flag.frozenImmune) {
       Status.add(enemy, 'frozen', 1, 1);
       FX.burst(enemy.x, enemy.y, '#9fd8ff', 8);
+    }
+
+    // 精英词缀·荆棘: 近战触碰带刺的敌人会被扎 (仅近战 bump, 远程不触发)
+    if (enemy.flag.thornArmor && enemy.hp > 0 && p.hp > 0) {
+      const back = enemy.flag.thornArmor;
+      FX.float(p.x, p.y, '刺!' + back, '#8fce6a');
+      hurtPlayer(game, back, { type: 'melee', cause: enemy.name + ' 的荆棘' });
     }
   }
 
@@ -182,6 +191,13 @@ const Combat = (() => {
       p.mp -= drain;
       game.msg(`${enemy.name} 吸走了你 ${drain} 点法力!`, 'magic');
     }
+
+    // 精英词缀·虹吸: 攻击你的敌人回复等量一半生命
+    if (enemy.flag.vampiric && enemy.hp > 0) {
+      const h = Math.max(1, Math.round(dmg * enemy.flag.vampiric));
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + h);
+      FX.float(enemy.x, enemy.y, '+' + h, '#6fd07a');
+    }
   }
 
   /** 敌人远程攻击 (火球/奥术弹) */
@@ -204,6 +220,7 @@ const Combat = (() => {
     if (enemy.hp <= 0) return;
     enemy.hp -= dmg;
     game.stats.damageDealt += dmg;
+    enemy.flash = performance.now();   // 受击闪白 (渲染层消费)
     const color = opts.type === 'fire' ? '#ff9538'
       : opts.type === 'ice' ? '#9fd8ff'
       : opts.type === 'lightning' ? '#f7e463'
@@ -212,10 +229,16 @@ const Combat = (() => {
     FX.hit(enemy.x, enemy.y, color, opts.crit);
     FX.float(enemy.x, enemy.y, '-' + dmg + (opts.crit ? '!' : ''), opts.crit ? '#ffd43b' : color, opts.crit);
     AudioSys.play(opts.crit ? 'crit' : 'hit');
-    if (opts.crit) game.shake(CONFIG.SHAKE.crit);
+    if (opts.crit) {
+      game.shake(CONFIG.SHAKE.crit);
+      if (game.hitstop) game.hitstop(50);  // 暴击顿帧
+    }
 
     if (enemy.hp <= 0) killEnemy(game, enemy);
-    else if (!enemy.awake) { enemy.awake = true; } // 被打醒
+    else if (!enemy.awake) {
+      enemy.awake = true; // 被打醒
+      if (enemy.boss && !enemy._introDone && game.bossIntro) game.bossIntro(enemy);
+    }
   }
 
   /** 对玩家造成伤害 */
@@ -238,12 +261,14 @@ const Combat = (() => {
     p.hp -= dmg;
     game.stats.taken += dmg;
     game.stats.takenThisFloor = (game.stats.takenThisFloor || 0) + dmg;
+    p.flash = performance.now();     // 受击闪白 (渲染层消费)
     const color = opts.type === 'fire' ? '#ff9538' : opts.type === 'arcane' ? '#b197fc' : '#ff6b6b';
     FX.hurt(p.x, p.y, opts.crit);
     FX.float(p.x, p.y, '-' + dmg + (opts.crit ? '!' : ''), opts.crit ? '#ffd43b' : color, opts.crit);
     AudioSys.play(opts.crit ? 'hurt' : 'phit');
     game.shake(opts.crit ? CONFIG.SHAKE.crit : CONFIG.SHAKE.hit);
     game.flashRed = Math.min(1, (game.flashRed || 0) + 0.4);
+    if (game.hitstop) game.hitstop(40);  // 玩家受击微顿帧
 
     if (p.hp <= 0) {
       p.hp = 0;
@@ -257,7 +282,9 @@ const Combat = (() => {
     const rng = game.rng;
     enemy.hp = 0;
     FX.death(enemy.x, enemy.y, enemy.color);
+    FX.soul(enemy.x, enemy.y, enemy.color);           // 魂魄上升粒子
     AudioSys.play(enemy.boss ? 'bossdie' : 'die');
+    if (game.hitstop) game.hitstop(enemy.boss ? 140 : 70);  // 击杀顿帧
 
     // 自爆
     if (enemy.flag.explodeOnDeath) {
@@ -315,6 +342,7 @@ const Combat = (() => {
     game.gainXp(enemy.xp);
     p.kills++;
     game.stats.kills++;
+    if (enemy.elite) game.stats.eliteKills = (game.stats.eliteKills || 0) + 1;
     Meta.recordKill(enemy.id);
     if (enemy.boss) {
       const map = { boss_butcher: 'boss_butcher', boss_king: 'boss_king', boss_dragon: 'dragon_slayer' };
@@ -356,5 +384,5 @@ const Combat = (() => {
     }
   }
 
-  return { playerAttack, playerRanged, enemyAttack, enemyRanged, hurtEnemy, hurtPlayer, killEnemy, gainXp, playerAtkVal };
+  return { playerAttack, playerRanged, enemyAttack, enemyRanged, hurtEnemy, hurtPlayer, killEnemy, gainXp, playerAtkVal, dealPlayerHit };
 })();

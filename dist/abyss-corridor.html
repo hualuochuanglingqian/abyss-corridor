@@ -377,6 +377,23 @@ body {
 .challenge-card .cc-name { color: var(--gold); margin: 8px 0; font-size: 14px; }
 .challenge-card .cc-desc { font-size: 11.5px; color: var(--text); line-height: 1.7; min-height: 66px; }
 
+/* ---- 职业选择 / 死亡建议 / 回响图鉴 (v2.3) ---- */
+.class-card { min-width: 220px; max-width: 250px; cursor: pointer; }
+.class-card .bc-key { color: var(--gold-dim); }
+.death-tip {
+  max-width: 560px; margin: -6px auto 16px; padding: 8px 12px;
+  border: 1px solid var(--border); background: var(--panel2);
+  color: var(--dim); font-size: 12px; line-height: 1.7; text-align: left;
+}
+.echo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.echo-card {
+  border: 2px solid var(--border); background: var(--panel2);
+  padding: 10px 12px; border-radius: 10px;
+}
+.echo-card.unknown { opacity: .42; }
+.echo-idx { color: var(--gold); font-size: 12px; margin-bottom: 6px; }
+.echo-text { color: var(--text); font-size: 12px; line-height: 1.8; }
+
 @media (max-width: 1180px) { #sidebar { width: 262px; } }
 @media (max-width: 1000px) {
   #app { flex-direction: column; overflow-y: auto; }
@@ -388,7 +405,7 @@ body {
 /* 像素 UI 无圆角 */
 .panel, .ov-box, .mbtn, .tbtn, .inv-slot, .skill-row, .st-icon, .boon-chip, .boon-card,
 .challenge-card, .talent-row, #dialog-box, #toast, .ds-item, .cx-card, .ach-card,
-.bar, .equip-row, #topbar, #canvas-wrap, .ctab, .tl-buy, .cc-start, .key {
+.bar, .equip-row, #topbar, #canvas-wrap, .ctab, .tl-buy, .cc-start, .key, .echo-card, .death-tip {
   border-radius: 0 !important;
 }
 
@@ -535,6 +552,7 @@ body { font-size: 12px; }
   <div class="ov-box death-box">
     <div class="death-title">你倒在了深渊里</div>
     <div id="death-cause" class="death-cause">—</div>
+    <div id="death-tip" class="death-tip"></div>
     <div id="death-stats" class="death-stats"></div>
     <div class="menu-btns">
       <button id="btn-death-retry" class="mbtn primary">🕯 再次下潜 (新的地牢)</button>
@@ -591,7 +609,10 @@ body { font-size: 12px; }
           <li>🏹 <b>远程武器</b>(弓/法杖/回旋刃): 朝敌人方向按键即射击; 主副手按 <b>X</b> 切换, 法杖每次发射耗 2 法力。</li>
           <li>🧬 掉落装备可能带随机<b>词条</b>(吸血/灼烧/连击/破甲…), 名字里会显示。</li>
           <li>✨ 每层开始<b>三选一祝福</b>, 可叠加 — 想好这局要玩什么流派。</li>
-          <li>👑 金色光环的是<b>精英怪</b>, 更强但必掉好货; 🚪 某些房间进门会<b>关门打狗</b>, 清场开宝箱。</li>
+          <li>⚔️ 开局选择<b>职业</b>: 战士硬刚 / 游侠放风筝 / 法师技能轰炸 — 每种都值得重玩。</li>
+          <li>👑 金色光环的是<b>精英怪</b>, 更强但必掉好货; 名字里的<b>词缀</b>(迅捷/灼热/虹吸…)就是它的招 — 悬停可查。🚪 某些房间进门会<b>关门打狗</b>, 清场开宝箱。</li>
+          <li>📜 每层藏着一枚泛紫光的<b>记忆碎片</b>(掘金队日记), 集齐 15 枚在图鉴「回响」拼出完整故事。</li>
+          <li>🪓 「处决者」祝福专收残血; 😈 「无底之胃」金币+60% 但药水减半 — 诅咒不全是坏事。</li>
           <li>💎 死亡/通关结算<b>魂晶</b>, 回主菜单可在「天赋」中永久变强。</li>
           <li>🎯 挑战因子 (疯狂/浓雾/坚壁) 更难, 魂晶收益 ×1.5。</li>
         </ul>
@@ -606,6 +627,7 @@ body { font-size: 12px; }
     <div class="ov-title">图鉴 · 成就 · 纪录</div>
     <div class="codex-tabs">
       <button class="ctab active" data-tab="bestiary">👹 敌人图鉴</button>
+      <button class="ctab" data-tab="echoes">📜 回响</button>
       <button class="ctab" data-tab="achievements">🏅 成就</button>
       <button class="ctab" data-tab="records">📈 纪录</button>
     </div>
@@ -637,6 +659,15 @@ body { font-size: 12px; }
     <div class="panel-hint" style="margin-bottom:12px">选择一个挑战因子开启新的一局 — 更难, 但魂晶收益 ×1.5</div>
     <div id="challenge-cards" class="challenge-cards"></div>
     <div class="menu-btns"><button id="btn-challenge-none" class="mbtn">不用了, 普通开局</button></div>
+  </div>
+</div>
+
+<div id="overlay-class" class="overlay">
+  <div class="ov-box">
+    <div class="ov-title">⚔ 选择你的出身</div>
+    <div class="panel-hint" style="margin-bottom:6px">职业决定初始装备与属性倾向 — 祝福仍照常三选一, 流派由你构建</div>
+    <div id="class-cards" class="boon-cards"></div>
+    <div class="menu-btns"><button id="btn-class-cancel" class="mbtn">返回标题</button></div>
   </div>
 </div>
 
@@ -890,7 +921,7 @@ const Util = {
 'use strict';
 
 const CONFIG = {
-  VERSION: '2.2.0',       // 与 CHANGELOG.md 同步, 标题画面显示
+  VERSION: '2.3.0',       // 与 CHANGELOG.md 同步, 标题画面显示
   TILE: 24,               // 图块像素
   MAP_W: 48,              // 地图宽 (格)
   MAP_H: 30,              // 地图高 (格)
@@ -904,6 +935,26 @@ const CONFIG = {
     ATK: 3, DEF: 0,
     ACC: 85, EVA: 5, CRIT: 5,
   },
+
+  // 开局职业: 不同初始装备与属性倾向 (v2.3)
+  // glyph 用于画布中的玩家形象; acc/eva/crit 是每次 recalcStats 的固定偏移
+  CLASSES: [
+    {
+      id: 'warrior', name: '战士', icon: '🗡️', glyph: '🤺', weapon: 'w_iron',
+      desc: '铁剑开局 · 生命 +14, 防御 +1, 暴击 +5 — 正面硬刚, 走廊里一夫当关。',
+      hp: 14, def: 1, acc: 3, eva: 0, crit: 5, mp: 0, fov: 0,
+    },
+    {
+      id: 'ranger', name: '游侠', icon: '🏹', glyph: '🧝', weapon: 'w_bow1',
+      desc: '短弓开局 · 闪避 +8, 命中 +8, 视野 +1 — 放风筝大师, 保持距离就是安全。',
+      hp: 0, def: 0, acc: 8, eva: 8, crit: 2, mp: 4, fov: 1,
+    },
+    {
+      id: 'mage', name: '法师', icon: '🔥', glyph: '🧙', weapon: 'w_wand1',
+      desc: '学徒法杖开局 · 法力 +16, 生命 -6 — 技能流派, 火球闪电雪崩一样砸。',
+      hp: -6, def: 0, acc: 2, eva: 3, crit: 0, mp: 16, fov: 0,
+    },
+  ],
 
   // 升级曲线: 升到 L 级所需经验 = 18 * L^1.35
   xpNeed(level) { return Math.round(18 * Math.pow(level, 1.35)); },
@@ -1556,6 +1607,17 @@ const ENEMY_TUNING = {
   bossAtkMul: 1.0,
 };
 
+// 精英词缀 (v2.3): 精英怪随机获得一条, 名字即威胁 — 借鉴 Diablo 精英词缀的"读名知险"
+// apply 在 mk() 基础属性生成后调用; flag 合并进敌人 flag (combat.js 消费)
+const ELITE_AFFIXES = {
+  swift:    { name: '迅捷', icon: '💨', apply(e) { e.speed = Math.min(2.5, e.speed + 0.5); } },
+  sturdy:   { name: '坚韧', icon: '🪨', apply(e) { e.maxHp = Math.round(e.maxHp * 1.25); e.hp = e.maxHp; e.def += 3; } },
+  blazing:  { name: '灼热', icon: '🔥', apply(e, flag) { flag.burnOnHit = 0.35; } },
+  venomous: { name: '剧毒', icon: '☠️', apply(e, flag) { flag.poisonOnHit = 0.5; } },
+  vampiric: { name: '虹吸', icon: '🩸', apply(e, flag) { flag.vampiric = 0.5; } },
+  thorny:   { name: '荆棘', icon: '🌵', apply(e, flag) { flag.thornArmor = 3 + Math.round(e.level / 4); } },
+};
+
 const Enemies = {
   _seq: 1,
 
@@ -1595,6 +1657,16 @@ const Enemies = {
     e.atk = Math.max(1, Math.round(d.atk * atkScale));
     e.def = d.def + (opts.chal && opts.chal.defAdd ? opts.chal.defAdd : 0) + (e.elite ? 1 : 0);
     e.eva += e.elite ? 5 : 0;
+    // 精英词缀 (v2.3): 随机获得一条, 名字即威胁
+    if (e.elite) {
+      const affKey = rng.pick(Object.keys(ELITE_AFFIXES));
+      const aff = ELITE_AFFIXES[affKey];
+      e.eliteAff = { id: affKey, name: aff.name, icon: aff.icon };
+      const affFlag = {};
+      aff.apply(e, affFlag);
+      Object.assign(e.flag, affFlag);
+      e.name = aff.name + '·' + e.name;
+    }
     const xMul = (e.elite ? 2.5 : 1) * (opts.chal && opts.chal.rewardMul ? opts.chal.rewardMul : 1);
     e.xp = Math.round(d.xp * (1 + deep * 0.04) * xMul);
     e.gold = d.gold ? [Math.round(d.gold[0] * (1 + deep * 0.04) * xMul), Math.round(d.gold[1] * (1 + deep * 0.06) * xMul)] : null;
@@ -1705,10 +1777,19 @@ const BOONS = {
   slayer:     { name: '破军',   icon: '⚔️', desc: '对 Boss 伤害 +25%', flag: { bossDmgMul: 1.25 } },
   pyromancer: { name: '烈焰亲和', icon: '🔥', desc: '火球术伤害 +60%', flag: { fireMul: 1.6 } },
 
+  // ---- v2.3 流派祝福 ----
+  venom:      { name: '毒刃',   icon: '☠️', desc: '攻击 20% 使敌人中毒 (每回合伤害随攻击成长)', flag: { poisonOnHit: 0.2 } },
+  ember:      { name: '燃刃',   icon: '🔥', desc: '攻击 20% 点燃敌人 (2 回合持续伤害)', flag: { burnOnHit: 0.2 } },
+  flurry:     { name: '连击',   icon: '⚔️', desc: '攻击 18% 概率追加一击', flag: { comboOnHit: 0.18 } },
+  breaker:    { name: '破甲',   icon: '🔨', desc: '无视敌人一半防御 — 铠蝎岩蟹的天敌', flag: { pierce: 1 } },
+  lifebloom:  { name: '回春',   icon: '🌿', desc: '每回合回复 1 生命', flag: { regen: 1 } },
+  executioner:{ name: '处决者', icon: '🪓', desc: '血量低于 30% 的敌人受到伤害 +50% — 收割者流派', flag: { execDmg: 0.5 } },
+
   // ---- 诅咒祝福: 高风险高收益 (40% 概率混入三选一) ----
   devil:     { name: '恶魔契约', icon: '😈', cursed: true, desc: '攻击 +8; 代价: 每层开始中毒 3 回合', stat: { atk: 8 }, flag: { poisonPerFloor: 3 } },
   blood_pact:{ name: '血誓',     icon: '🩸', cursed: true, desc: '暴击 +25%; 代价: 生命上限 -15%', stat: { crit: 25 }, flag: { hpPct: -0.15 } },
   titan:     { name: '泰坦之诅', icon: '🗿', cursed: true, desc: '防御 +6; 代价: 闪避 -25', stat: { def: 6, eva: -25 } },
+  gluttony:  { name: '无底之胃', icon: '🍖', cursed: true, desc: '金币 +60%; 代价: 药水效果减半 — 贪婪者的胃', flag: { goldMul: 1.6, potionMul: -0.5 } },
 };
 
 const Boons = {
@@ -1949,6 +2030,33 @@ const STORY = {
       curse_ghost: '石像的沉默里爬出个影子——它替你"验收"了愿望。(惊现幽魂!)',
     },
   },
+
+  // ---- Boss 登场台词 (v2.3: 觉醒时横幅演出) ----
+  bossIntro: {
+    boss_butcher: '屠夫·格罗: 「又一个想抢我肉案的。把外套脱了再进来——别弄脏地板。」',
+    boss_king: '骸骨王: 「朕的臣民跪了三百年。你, 抬起头来。」',
+    boss_dragon: '深渊之龙: 「第四个下来的人……终于。我数你们, 数了三代人。」',
+  },
+
+  // ---- 记忆碎片 (v2.3): 掘金队日记, 散落在第 1~15 层, 图鉴「回响」页收集 ----
+  notesIntro: '一张被水渍泡皱的纸, 字迹却出奇地稳。',
+  notes: [
+    '「第 1 天。队里十二个人, 雷雨夜听到井底的歌声之后, 老周把镐头扔了, 说这是矿脉在唱。我们笑了三个小时。明天下去。」',
+    '「第 3 天。第一层的墙里有指甲印, 朝里的。老周说是矿工开凿时留下的。没人接话。」',
+    '「第 5 天。阿禾在测深度。她说越往下, 歌声越慢。像是……在睡。一个会睡觉的矿脉。」',
+    '「第 7 天。老周不见了。他的镐头插在第 4 层的碎石里, 镐柄朝着上面的方向。我们决定不再喊他的名字, 回声会答应。」',
+    '「第 9 天。小柯说他昨晚数自己的影子, 数出了两个。我们把灯油对半分, 所有人背靠背睡。」',
+    '「第 11 天。泉水是甜的。喝了的人都做了同一个梦: 一条很深很深的走廊, 尽头有一面镜子。」',
+    '「第 13 天。阿禾的笔记突然换了笔迹。还是她的字, 但她坚持说『我们』才是外来的。我们把她的绳子和自己的拴在一起。」',
+    '「第 15 天。白骨的方向终于解释了: 不是在逃命, 是在下跪。整支矿队朝着下面最深处磕头。阿禾说, 这里不是矿。是祭坛。」',
+    '「第 18 天。我们看见了那东西的鳞。不是龙的鳞——是墙。整面墙睁开了眼睛。原来回廊不是它住的地方, 回廊是它。」',
+    '「第 20 天。回响会说人话了。它用老周的嗓子问: 『上面还冷吗?』小柯替它答了: 『冷。』它好像很满意。」',
+    '「第 23 天。食物还剩七天的量, 人数剩五个。镜子里的水泊说, 把名字给它, 它就放一个人上去。没人给。我们吵了整整一夜, 最后都笑了——都到这份上了, 居然还在讲义气。」',
+    '「第 25 天。它不许我们往下走第九层。它说下面的东西, 连它也只是『看门的』。我们当然不信。我们悄悄系好了绳。」',
+    '「第 27 天。绳子断了。不是磨断的——是从上面剪断的。我们五个往回跑了三层, 直到听见歌声。歌声在等我们回去。」',
+    '「第 30 天。就剩阿禾和我。她把日记塞给我, 说: 『替我把它带上去。别让第四个下去的人重蹈覆辙——告诉他们, 歌声不是矿脉在唱, 是它在学。』」',
+    '「最后一页。字迹很稳, 稳得不像快死的人。我把它留在这里, 留给下一个听见歌声的人。如果你读到这里——那首歌的调子, 是你自己的名字。」',
+  ],
 
   /** 随机取一条低语 (排除最近说过的) */
   pickWhisper(rng, recent) {
@@ -2236,6 +2344,9 @@ const MapGen = (() => {
 
     // 交互 NPC: 预言者 / 被困旅者 / 神秘石像
     placeNPCs(L, rng, floor);
+
+    // 记忆碎片: 掘金队日记, 每层一枚 (1~15 层, 已收录的不再出现)
+    placeNotes(L, rng, floor);
 
     // 伏击房 (关门打狗)
     pickAmbushRooms(L, rng);
@@ -2531,8 +2642,7 @@ const MapGen = (() => {
 
   /** 挑选伏击房 (关门打狗): 中等大小、无特殊设施、非出生房/商店/Boss 层 */
   /** 交互 NPC: 预言者 / 被困旅者 / 神秘石像 — 只放开阔可达处, 不堵路 */
-  function placeNPCs(L, rng, floor) {
-    if (floor < 2 || L.theme.boss) return;
+  function placeNPCs(L, rng, floor) {    if (floor < 2 || L.theme.boss) return;
     const used = [];
     const okSpot = (x, y) => {
       const t = L.tile(x, y);
@@ -2562,6 +2672,23 @@ const MapGen = (() => {
     if (rng.chance(0.4)) put(T.ORACLE);
     if (rng.chance(0.4)) put(T.CAPTIVE);
     if (floor >= 3 && rng.chance(0.35)) put(T.STATUE);
+  }
+
+  /** 记忆碎片 (v2.3): 每层一枚掘金队日记, 已收录的不刷 (Meta.notes) */
+  function placeNotes(L, rng, floor) {
+    L.notes = [];
+    if (floor < 1 || floor > CONFIG.MAX_FLOOR) return;
+    const idx = floor - 1;
+    if (typeof Meta !== 'undefined' && Meta.hasNote && Meta.hasNote(idx)) return;
+    const spots = rng.shuffled(spawnableTiles(L, 6, 38));
+    for (const s of spots) {
+      if (L.items.some(it => it.x === s.x && it.y === s.y)) continue;
+      if (L.golds.some(g => g.x === s.x && g.y === s.y)) continue;
+      if (s.x === L.spawn.x && s.y === L.spawn.y) continue;
+      clearEnemyAt(L, s.x, s.y);
+      L.notes.push({ x: s.x, y: s.y, idx });
+      return;
+    }
   }
 
   function pickAmbushRooms(L, rng) {
@@ -2873,6 +3000,8 @@ const Combat = (() => {
     let effDef = enemy.def;
     if (f.pierce) effDef *= 0.5;
     if (enemy.boss && f.bossDmgMul) dmg *= f.bossDmgMul;
+    // 处决者祝福: 残血敌人受伤加深
+    if (f.execDmg && enemy.maxHp && enemy.hp / enemy.maxHp < 0.3) dmg *= 1 + f.execDmg;
     dmg = Math.max(1, Math.round(dmg - effDef));
 
     hurtEnemy(game, enemy, dmg, { type: 'melee', crit });
@@ -2936,6 +3065,13 @@ const Combat = (() => {
     if (t && t.flag && t.flag.frostAura && rng.chance(t.flag.frostAura) && enemy.hp > 0 && !enemy.flag.frozenImmune) {
       Status.add(enemy, 'frozen', 1, 1);
       FX.burst(enemy.x, enemy.y, '#9fd8ff', 8);
+    }
+
+    // 精英词缀·荆棘: 近战触碰带刺的敌人会被扎 (仅近战 bump, 远程不触发)
+    if (enemy.flag.thornArmor && enemy.hp > 0 && p.hp > 0) {
+      const back = enemy.flag.thornArmor;
+      FX.float(p.x, p.y, '刺!' + back, '#8fce6a');
+      hurtPlayer(game, back, { type: 'melee', cause: enemy.name + ' 的荆棘' });
     }
   }
 
@@ -3020,6 +3156,13 @@ const Combat = (() => {
       p.mp -= drain;
       game.msg(`${enemy.name} 吸走了你 ${drain} 点法力!`, 'magic');
     }
+
+    // 精英词缀·虹吸: 攻击你的敌人回复等量一半生命
+    if (enemy.flag.vampiric && enemy.hp > 0) {
+      const h = Math.max(1, Math.round(dmg * enemy.flag.vampiric));
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + h);
+      FX.float(enemy.x, enemy.y, '+' + h, '#6fd07a');
+    }
   }
 
   /** 敌人远程攻击 (火球/奥术弹) */
@@ -3042,6 +3185,7 @@ const Combat = (() => {
     if (enemy.hp <= 0) return;
     enemy.hp -= dmg;
     game.stats.damageDealt += dmg;
+    enemy.flash = performance.now();   // 受击闪白 (渲染层消费)
     const color = opts.type === 'fire' ? '#ff9538'
       : opts.type === 'ice' ? '#9fd8ff'
       : opts.type === 'lightning' ? '#f7e463'
@@ -3050,10 +3194,16 @@ const Combat = (() => {
     FX.hit(enemy.x, enemy.y, color, opts.crit);
     FX.float(enemy.x, enemy.y, '-' + dmg + (opts.crit ? '!' : ''), opts.crit ? '#ffd43b' : color, opts.crit);
     AudioSys.play(opts.crit ? 'crit' : 'hit');
-    if (opts.crit) game.shake(CONFIG.SHAKE.crit);
+    if (opts.crit) {
+      game.shake(CONFIG.SHAKE.crit);
+      if (game.hitstop) game.hitstop(50);  // 暴击顿帧
+    }
 
     if (enemy.hp <= 0) killEnemy(game, enemy);
-    else if (!enemy.awake) { enemy.awake = true; } // 被打醒
+    else if (!enemy.awake) {
+      enemy.awake = true; // 被打醒
+      if (enemy.boss && !enemy._introDone && game.bossIntro) game.bossIntro(enemy);
+    }
   }
 
   /** 对玩家造成伤害 */
@@ -3076,12 +3226,14 @@ const Combat = (() => {
     p.hp -= dmg;
     game.stats.taken += dmg;
     game.stats.takenThisFloor = (game.stats.takenThisFloor || 0) + dmg;
+    p.flash = performance.now();     // 受击闪白 (渲染层消费)
     const color = opts.type === 'fire' ? '#ff9538' : opts.type === 'arcane' ? '#b197fc' : '#ff6b6b';
     FX.hurt(p.x, p.y, opts.crit);
     FX.float(p.x, p.y, '-' + dmg + (opts.crit ? '!' : ''), opts.crit ? '#ffd43b' : color, opts.crit);
     AudioSys.play(opts.crit ? 'hurt' : 'phit');
     game.shake(opts.crit ? CONFIG.SHAKE.crit : CONFIG.SHAKE.hit);
     game.flashRed = Math.min(1, (game.flashRed || 0) + 0.4);
+    if (game.hitstop) game.hitstop(40);  // 玩家受击微顿帧
 
     if (p.hp <= 0) {
       p.hp = 0;
@@ -3095,7 +3247,9 @@ const Combat = (() => {
     const rng = game.rng;
     enemy.hp = 0;
     FX.death(enemy.x, enemy.y, enemy.color);
+    FX.soul(enemy.x, enemy.y, enemy.color);           // 魂魄上升粒子
     AudioSys.play(enemy.boss ? 'bossdie' : 'die');
+    if (game.hitstop) game.hitstop(enemy.boss ? 140 : 70);  // 击杀顿帧
 
     // 自爆
     if (enemy.flag.explodeOnDeath) {
@@ -3153,6 +3307,7 @@ const Combat = (() => {
     game.gainXp(enemy.xp);
     p.kills++;
     game.stats.kills++;
+    if (enemy.elite) game.stats.eliteKills = (game.stats.eliteKills || 0) + 1;
     Meta.recordKill(enemy.id);
     if (enemy.boss) {
       const map = { boss_butcher: 'boss_butcher', boss_king: 'boss_king', boss_dragon: 'dragon_slayer' };
@@ -3194,7 +3349,7 @@ const Combat = (() => {
     }
   }
 
-  return { playerAttack, playerRanged, enemyAttack, enemyRanged, hurtEnemy, hurtPlayer, killEnemy, gainXp, playerAtkVal };
+  return { playerAttack, playerRanged, enemyAttack, enemyRanged, hurtEnemy, hurtPlayer, killEnemy, gainXp, playerAtkVal, dealPlayerHit };
 })();
 
 </script>
@@ -3355,6 +3510,8 @@ const AI = (() => {
         enemy.awake = true;
         FX.float(enemy.x, enemy.y, '!', '#ffd43b');
         AudioSys.play('alert');
+        // Boss 登场演出 (v2.3)
+        if (enemy.boss && !enemy._introDone && game.bossIntro) game.bossIntro(enemy);
       } else {
         // 沉睡: 20% 游走
         if (rng.chance(0.2)) stepRandom(game, enemy, rng);
@@ -3827,6 +3984,17 @@ const FX = (() => {
     floats.push({ x, y: y - 0.3, text: '💀', color: '#9aa5b5', life: 1.1, maxLife: 1.1, big: true, emoji: true });
   }
 
+  /** 魂魄上升: 击杀后一团发光碎片缓缓升空 (v2.3 打击感) */
+  function soul(x, y, color) {
+    for (let i = 0; i < 7; i++) {
+      spawnParticle(x + rand(-0.3, 0.3), y + rand(-0.2, 0.2), {
+        vx: rand(-0.15, 0.15), vy: rand(-1.4, -0.6),
+        life: rand(0.6, 1.2), size: rand(0.07, 0.16),
+        color: i % 2 ? color : '#fff3bf', type: 'ember', drag: 0.985,
+      });
+    }
+  }
+
   function boom(x, y, big) {
     const n = big ? 46 : 26;
     const cols = ['#ffd43b', '#ff9538', '#ff5a4a', '#fff3bf'];
@@ -4031,7 +4199,7 @@ const FX = (() => {
   }
 
   return {
-    burst, hit, hurt, death, boom, flame, trail, ring, nova, levelUp,
+    burst, hit, hurt, death, soul, boom, flame, trail, ring, nova, levelUp,
     projectile, float, lunge, step, shake, update, draw, clear,
     get shakeMag() { return shakeMag; },
     get shakeT() { return shakeT; },
@@ -4228,6 +4396,18 @@ const AudioSys = (() => {
     victory() {
       [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.5, { type: 'triangle', vol: 0.12, delay: i * 0.14 }));
     },
+    // v2.3: 脚步 (极轻, 仅手动移动触发)
+    step() { noise(0.05, { freq: 620, sweep: 240, vol: 0.035, q: 0.7 }); },
+    // v2.3: 低血量心跳 (双闷响)
+    heartbeat() {
+      tone(58, 0.14, { type: 'sine', vol: 0.22, slideTo: 40 });
+      tone(52, 0.16, { type: 'sine', vol: 0.18, slideTo: 36, delay: 0.17 });
+    },
+    // v2.3: 记忆碎片拾取音 (空灵琶音)
+    echo() {
+      [880, 1174, 1568].forEach((f, i) => tone(f, 0.5, { type: 'sine', vol: 0.07, delay: i * 0.12 }));
+      tone(440, 0.9, { type: 'sine', vol: 0.05, delay: 0.1 });
+    },
   };
 
   function play(name) {
@@ -4352,6 +4532,7 @@ const SaveSys = (() => {
       stats: JSON.parse(JSON.stringify(game.stats)),
       player: {
         name: p.name, x: p.x, y: p.y,
+        cls: p.cls || null, clsAcc: p.clsAcc || 0, clsEva: p.clsEva || 0, clsCrit: p.clsCrit || 0,
         hp: p.hp, maxHp: p.maxHp, mp: p.mp, maxMp: p.maxMp,
         baseMaxHp: p.baseMaxHp, baseMaxMp: p.baseMaxMp,
         baseAtk: p.baseAtk, baseDef: p.baseDef,
@@ -4377,6 +4558,7 @@ const SaveSys = (() => {
         enemies: JSON.parse(JSON.stringify(L.enemies)),
         torches: JSON.parse(JSON.stringify(L.torches)),
         ambushRooms: JSON.parse(JSON.stringify(L.ambushRooms || [])),
+        notes: JSON.parse(JSON.stringify(L.notes || [])),
         talked: JSON.parse(JSON.stringify(L.talked || {})),
         shop: L.shop || null,
         chest: L.chest || null,
@@ -4429,6 +4611,7 @@ const SaveSys = (() => {
       L.enemies = d.level.enemies;
       L.torches = d.level.torches;
       L.ambushRooms = d.level.ambushRooms || [];
+      L.notes = d.level.notes || [];
       L.talked = d.level.talked || {};
       L.fountainUsed = !!d.level.fountainUsed;
       L.shop = d.level.shop;
@@ -4493,6 +4676,8 @@ const ACHIEVEMENTS = [
   { id: 'challenge_win',name: '因子挑战者',   icon: '🎯', desc: '在挑战模式下通关深渊之龙' },
   { id: 'daily_play',   name: '每日打卡',     icon: '☀️', desc: '完成一次每日挑战 (死亡或通关都算)' },
   { id: 'cursed_pact',  name: '敢于诅咒',     icon: '😈', desc: '接受一张诅咒祝福' },
+  { id: 'elite_10',     name: '精英收割机',   icon: '👑', desc: '单局击败 10 只精英怪' },
+  { id: 'echoes_full',  name: '记忆拼图',     icon: '🧩', desc: '收齐全部 15 枚记忆碎片' },
 ];
 
 const META_KEY = 'abyss_corridor_meta_v1';
@@ -4506,6 +4691,8 @@ const Meta = (() => {
     shards: 0,          // 魂晶 (局外货币)
     talents: {},        // 局外天赋等级
     settings: { camera: 'fixed', shake: true },  // 视觉偏好
+    notes: {},          // 记忆碎片收集 idx -> true (跨局持久)
+    tips: {},           // 一次性教学提示 key -> true
     version: 1,
   };
   let loaded = false;
@@ -4521,6 +4708,8 @@ const Meta = (() => {
         if (!isFinite(data.records.totalKills)) data.records.totalKills = 0;
         data.shards = data.shards || 0;
         data.talents = data.talents || {};
+        data.notes = d.notes || {};
+        data.tips = d.tips || {};
         data.settings = Object.assign({ camera: 'fixed', shake: true }, d.settings || {});
       }
     } catch (e) { /* 用默认值 */ }
@@ -4566,6 +4755,27 @@ const Meta = (() => {
     save();
   }
 
+  // ---------- 记忆碎片 (v2.3) ----------
+  function hasNote(idx) { return !!data.notes[idx]; }
+  function noteCount() { return Object.keys(data.notes).length; }
+
+  function collectNote(idx) {
+    if (data.notes[idx]) return false;
+    data.notes[idx] = true;
+    if (noteCount() >= 15) unlock('echoes_full');
+    save();
+    return true;
+  }
+
+  // ---------- 一次性教学提示 ----------
+  function tipOnce(key, text, ms) {
+    if (data.tips[key]) return false;
+    data.tips[key] = true;
+    save();
+    if (text && typeof HUD !== 'undefined') HUD.toast(text, ms || 4200);
+    return true;
+  }
+
   /** 局内检查点 (击杀/金币/层数变化时调用) */
   function check(game) {
     const p = game.player;
@@ -4577,6 +4787,7 @@ const Meta = (() => {
     if (game.floor >= 5) unlock('reach_f5');
     if (game.floor >= 10) unlock('reach_f10');
     if (game.floor >= 20) unlock('endless_20');
+    if ((game.stats && game.stats.eliteKills) >= 10) unlock('elite_10');
     const deep = Math.max(data.records.deepest, game.floor);
     if (deep !== data.records.deepest) { data.records.deepest = deep; save(); }
   }
@@ -4650,6 +4861,7 @@ const Meta = (() => {
     get data() { return data; },
     load, save, unlock, recordKill, hasAchievement, bestiaryCount,
     chestOpened, newRun, check, gameOver, buyTalent, listAchievements, listBestiary,
+    hasNote, noteCount, collectNote, tipOnce,
     get loaded() { return loaded; },
   };
 })();
@@ -4838,6 +5050,13 @@ const Render = (() => {
 
     // ---- 屏幕空间 UI ----
     drawLowHpVignette(game, now);
+    // 换层渐隐过渡 (v2.3)
+    if (game._fade > 0) {
+      ctx.save();
+      ctx.fillStyle = `rgba(2,4,8,${Math.min(0.92, game._fade)})`;
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.restore();
+    }
     if (game.flashRed > 0) {
       ctx.save();
       ctx.fillStyle = `rgba(160,20,30,${Math.min(0.2, game.flashRed * 0.22)})`;
@@ -5285,6 +5504,16 @@ const Render = (() => {
       }
       ctx.restore();
     }
+    // 记忆碎片 (v2.3): 泛着紫光的旧纸页
+    if (L.notes) {
+      for (const n of L.notes) {
+        if (n.x < bx0 || n.x > bx1 || n.y < by0 || n.y > by1) continue;
+        if (!L.explored[n.y * W + n.x]) continue;
+        const pulse = 0.6 + 0.4 * Math.sin(now / 300 + n.x);
+        blitGlow(ctx, n.x, n.y, 1.0, '#b197fc', 0.3 * pulse);
+        drawEmoji('📜', n.x * TS + TS / 2, n.y * TS + TS / 2, now, 0.8, 'rgba(177,151,252,0.8)');
+      }
+    }
   }
 
   // ---------- 实体 ----------
@@ -5337,7 +5566,14 @@ const Render = (() => {
 
     // 战斗状态: 环色随敌情变化 (蓝=安全, 红=被怪盯上)
     const inCombat = game.enemiesVisible && game.enemiesVisible().some(e => e.awake && e.hp > 0);
-    drawEmoji('🧙', px, py, now, 1.06, inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)');
+    // 职业形象 (v2.3): 战士🤺 / 游侠🧝 / 法师🧙
+    const cls = p.cls && CONFIG.CLASSES ? CONFIG.CLASSES.find(c => c.id === p.cls) : null;
+    const pGlyph = cls ? cls.glyph : '🧙';
+    // 受击闪白 (v2.3)
+    const flashed = p.flash && (now - p.flash) < 130;
+    if (flashed) blitGlow(ctx, p.x + ox, p.y + oy, 0.8, '#ffffff', 0.55);
+    drawEmoji(pGlyph, px, py, now, flashed ? 1.12 : 1.06,
+      flashed ? 'rgba(255,255,255,0.95)' : (inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)'));
     ctx.save();
     ctx.strokeStyle = inCombat ? 'rgba(255,110,90,0.7)' : 'rgba(165,200,255,0.65)';
     ctx.lineWidth = 1.6;
@@ -5375,7 +5611,11 @@ const Render = (() => {
       ctx.ellipse(px, py + TS * 0.32, TS * (e.boss ? 0.4 : 0.28), TS * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    drawEmoji(e.glyph, px, py, now, e.boss ? 1.2 : 0.98, isVis && e.boss ? 'rgba(255,90,60,0.8)' : null);
+    // 受击闪白 (v2.3): 白色光晕 + 放大 + 白描边, 130ms
+    const flashed = isVis && e.flash && (now - e.flash) < 130;
+    if (flashed) blitGlow(ctx, e.x + ox, e.y + oy, 0.85, '#ffffff', 0.6);
+    drawEmoji(e.glyph, px, py, now, flashed ? (e.boss ? 1.3 : 1.08) : (e.boss ? 1.2 : 0.98),
+      flashed ? 'rgba(255,255,255,0.95)' : (isVis && e.boss ? 'rgba(255,90,60,0.8)' : null));
 
     if (Status.has(e, 'frozen')) {
       ctx.globalAlpha = 0.5;
@@ -5385,7 +5625,11 @@ const Render = (() => {
       ctx.fill();
       ctx.globalAlpha = 1;
     }
-    if (isVis && e.elite) drawEmoji('👑', px, py - TS * 0.82, now, 0.55);
+    if (isVis && e.elite) {
+      drawEmoji('👑', px, py - TS * 0.82, now, 0.55);
+      // 精英词缀角标 (v2.3): 戴在名字里的威胁
+      if (e.eliteAff) drawEmoji(e.eliteAff.icon, px + TS * 0.52, py - TS * 0.8, now, 0.42);
+    }
     if (isVis && e.hp < e.maxHp) {
       const bw = e.boss ? TS * 1.6 : TS * 1.1;
       const bx = px - bw / 2, by = py - TS * 0.52;
@@ -5538,6 +5782,14 @@ const Render = (() => {
       mctx.fillStyle = '#d9ab4a';
       mctx.fillRect(it.x * s, it.y * s, Math.ceil(s), Math.ceil(s));
     }
+    // 记忆碎片: 紫点 (v2.3)
+    if (L.notes) {
+      mctx.fillStyle = '#b197fc';
+      for (const n of L.notes) {
+        if (!L.explored[n.y * W + n.x]) continue;
+        mctx.fillRect(n.x * s, n.y * s, Math.ceil(s), Math.ceil(s));
+      }
+    }
   }
 
   function drawMinimap(game) {
@@ -5608,6 +5860,18 @@ const Render = (() => {
         ? Math.max(1, Math.round((e.ranged.dmg || e.atk) - Math.floor(game.player.def / 2)))
         : Math.max(1, Math.round(Status.atkOf(e) - game.player.def));
       lines = [`${e.glyph} ${e.name}`, `HP ${e.hp}/${e.maxHp} · 攻 ${Status.atkOf(e)} · 防 ${e.def}`, e.boss ? '★ 首领' : `经验 +${e.xp}`, `⚔ 下次攻击 ≈ ${nextDmg}`];
+      // 精英词缀说明 (v2.3)
+      if (e.eliteAff) {
+        const affTip = {
+          swift: '词缀·迅捷: 比回合多行动半次',
+          sturdy: '词缀·坚韧: 额外血量与防御',
+          blazing: '词缀·灼热: 打你会被点燃',
+          venomous: '词缀·剧毒: 打你会中毒',
+          vampiric: '词缀·虹吸: 它打你回血',
+          thorny: '词缀·荆棘: 近战摸它会被扎',
+        }[e.eliteAff.id];
+        if (affTip) lines.push('👑 ' + affTip);
+      }
     } else {
       const its = L.itemsAt(m.x, m.y);
       if (its.length) {
@@ -5765,7 +6029,9 @@ const HUD = (() => {
     els.seed.textContent = `🌱 ${game.seed}`;
     els.seed.title = '本局种子: ' + game.seed;
 
-    els.name.textContent = p.name;
+    // 名字 + 职业角标 (v2.3)
+    const clsDef = p.cls && CONFIG.CLASSES ? CONFIG.CLASSES.find(c => c.id === p.cls) : null;
+    els.name.textContent = clsDef ? `${clsDef.icon} ${clsDef.name}` : p.name;
     els.lv.textContent = 'Lv.' + p.level;
     els.hpBar.style.width = Util.clamp(p.hp / p.maxHp * 100, 0, 100) + '%';
     els.hpText.textContent = `${p.hp} / ${p.maxHp}`;
@@ -5948,15 +6214,15 @@ const Screens = (() => {
     const $ = Util.el;
 
     // ---- 标题页 ----
-    $('btn-new-run').addEventListener('click', () => { AudioSys.play('ui'); game.newRun(null); });
+    $('btn-new-run').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => game.newRun(null, { cls })); });
     $('btn-continue').addEventListener('click', () => { AudioSys.play('ui'); game.continueRun(); });
     $('btn-title-help').addEventListener('click', () => { AudioSys.play('ui'); openHelp('title'); });
     $('btn-title-codex').addEventListener('click', () => { AudioSys.play('ui'); openCodex('bestiary', 'title'); });
     $('btn-title-talents').addEventListener('click', () => { AudioSys.play('ui'); openTalents(); });
     $('btn-title-challenge').addEventListener('click', () => { AudioSys.play('ui'); openChallenge(); });
-    $('btn-title-daily').addEventListener('click', () => { AudioSys.play('ui'); hideAll(); game.startDaily(); });
+    $('btn-title-daily').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => { hideAll(); game.startDaily(cls); }); });
     $('btn-talents-close').addEventListener('click', () => { AudioSys.play('ui'); hide('overlay-talents'); game.paused = true; });
-    $('btn-challenge-none').addEventListener('click', () => { AudioSys.play('ui'); hideAll(); game.newRun(null); });
+    $('btn-challenge-none').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => { hideAll(); game.newRun(null, { cls }); }); });
 
     // 祝福三选一: 键盘 1/2/3
     window.addEventListener('keydown', (e) => {
@@ -5981,8 +6247,17 @@ const Screens = (() => {
     });
 
     // ---- 死亡 ----
-    $('btn-death-retry').addEventListener('click', () => { AudioSys.play('ui'); game.newRun(); });
+    $('btn-death-retry').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => game.newRun(null, { cls })); });
     $('btn-death-menu').addEventListener('click', () => { AudioSys.play('ui'); game.toTitle(); });
+
+    // ---- 职业选择: 取消 ----
+    $('btn-class-cancel').addEventListener('click', () => {
+      AudioSys.play('ui');
+      hide('overlay-class');
+      classCb = null;
+      game.paused = true;
+      title();
+    });
 
     // ---- 通关 ----
     $('btn-win-endless').addEventListener('click', () => { AudioSys.play('ui'); game.continueEndless(); });
@@ -6124,6 +6399,21 @@ const Screens = (() => {
             <div class="ach-desc">${a.desc}</div>
           </div>
         </div>`).join('') + '</div>';
+    } else if (codexTab === 'echoes') {
+      // 回响: 记忆碎片收集 (v2.3)
+      const total = STORY.notes.length;
+      const got = Meta.noteCount();
+      body.innerHTML = `<div class="panel-hint" style="margin-bottom:10px">
+        📜 掘金队日记 — 三代人之前被深渊吞掉的十二个人, 只留下这些碎片。已收集 <b>${got} / ${total}</b>
+        ${got >= total ? ' · <b style="color:var(--gold)">🧩 已拼齐 — 歌声的调子, 是你自己的名字</b>' : ' · 走遍 1~15 层寻找泛紫光的纸页'}
+      </div>
+      <div class="echo-grid">` + STORY.notes.map((txt, i) => {
+        const has = Meta.hasNote(i);
+        return `<div class="echo-card ${has ? '' : 'unknown'}">
+          <div class="echo-idx">${has ? '📜' : '🔒'} 碎片 ${i + 1}</div>
+          <div class="echo-text">${has ? txt : '尚未寻回的回响…'}</div>
+        </div>`;
+      }).join('') + '</div>';
     } else {
       const r = Meta.data.records;
       const daily = Meta.data.daily;
@@ -6281,19 +6571,62 @@ const Screens = (() => {
     box.querySelectorAll('.cc-start').forEach(btn => {
       btn.addEventListener('click', () => {
         const c = CONFIG.CHALLENGES[parseInt(btn.dataset.idx, 10)];
-        hideAll();
-        game.newRun(c);
+        pickClass(cls => { hideAll(); game.newRun(c, { cls }); });
       });
     });
     show('overlay-challenge');
     game.paused = true;
   }
 
+  // ---------- 职业选择 (v2.3) ----------
+  let classCb = null;
+  function pickClass(cb) {
+    classCb = cb || null;
+    const box = Util.el('class-cards');
+    box.innerHTML = CONFIG.CLASSES.map((c, i) => `
+      <div class="boon-card class-card" data-idx="${i}">
+        <div class="bc-icon">${c.glyph}</div>
+        <div class="bc-name">${c.icon} ${c.name}</div>
+        <div class="bc-desc">${c.desc}</div>
+        <div class="bc-key">初始: ${ITEMS[c.weapon].glyph} ${ITEMS[c.weapon].name}</div>
+      </div>`).join('');
+    box.querySelectorAll('.class-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const c = CONFIG.CLASSES[parseInt(card.dataset.idx, 10)];
+        AudioSys.play('ui');
+        hide('overlay-class');
+        game.paused = false;
+        if (classCb) classCb(c.id);
+        classCb = null;
+      });
+    });
+    show('overlay-class');
+    game.paused = true;
+  }
+
   // ---------- 死亡 ----------
+  /** 按死因给出针对性建议 (v2.3) */
+  function deathAdvice(cause, g) {
+    const c = cause || '';
+    const notes = Meta.noteCount();
+    const noteLine = notes < 15 ? ` 另: 你已收集 ${notes}/15 枚记忆碎片 — 图鉴「回响」页等着补完。` : ' 你已集齐全部记忆碎片 — 掘金队的故事由你续写。';
+    if (/中毒/.test(c)) return '🕯 建议: 背包常备 🌿 净化药剂 (中毒/灼烧一扫而空); 毒牙蛇/铠蝎出没的层更要带。' + noteLine;
+    if (/灼烧|火|龙/.test(c)) return '🕯 建议: 对火系敌人拉开距离打; 🐲 龙鳞铠免疫灼烧, 龙掉必出。近战打龙先看好退路。' + noteLine;
+    if (/伏击|围/.test(c)) return '🕯 建议: 伏击房先退到房间角落, 让敌人排队进来 — 一次只挨一拳。' + noteLine;
+    if (/被 .+ 击杀/.test(c)) {
+      if (g && g.floor >= 10) return '🕯 建议: 深层精英更凶 — 看清名字里的词缀再决定打不打; 退到走廊口让它们排队。' + noteLine;
+      return '🕯 建议: 群战退到走廊口卡位, 一列只放一只进来; 精英怪名字里的词缀就是它的招。' + noteLine;
+    }
+    if (/状态|毒/.test(c)) return '🕯 建议: 中毒/灼烧会持续掉血 — 见到 🌿 净化药剂别犹豫, 直接囤。' + noteLine;
+    return '🕯 建议: 每层三选一祝福决定流派 — 同类祝福叠加收益远大于分散; 血量 <40% 立刻 Q 喝药。' + noteLine;
+  }
+
   function death(g, cause, score, shards) {
     hideAll();
     game = g;
     Util.el('death-cause').textContent = cause || '';
+    const tipEl = Util.el('death-tip');
+    if (tipEl) tipEl.textContent = deathAdvice(cause, g);
     const p = g.player;
     Util.el('death-stats').innerHTML = [
       ['到达层数', '第 ' + g.floor + ' 层'],
@@ -6338,7 +6671,7 @@ const Screens = (() => {
     init, show, hide, hideAll, title, death, win, toast,
     openHelp, openCodex, openMenu, closeMenu, closeHelp, closeCodex, refreshRecord,
     showBoonChoices, hideBoonChoices, openTalents, openChallenge,
-    showDialogue,
+    showDialogue, pickClass,
     get pausedByOverlay() { return !!document.querySelector('.overlay.visible'); },
   };
 })();
@@ -6416,10 +6749,23 @@ const Game = {
   loop(now) {
     const dt = Math.min(0.05, (now - this._lastT) / 1000 || 0.016);
     this._lastT = now;
-    FX.update(dt);
+    // 顿帧 (hitstop): 命中/击杀瞬间世界短暂凝滞, 增强打击感
+    const frozen = this._freezeUntil && now < this._freezeUntil;
+    if (!frozen) FX.update(dt);
+    if (this._fade > 0) this._fade = Math.max(0, this._fade - dt * 1.6);
     if (this.flashRed > 0) this.flashRed = Math.max(0, this.flashRed - dt * 2.2);
 
-    if (this.state === 'play' && !this.paused && this.auto) {
+    // 低血量心跳 (v2.3): 生命 < 28% 且未暂停时每 1.15s 一次闷响
+    if (this.state === 'play' && !this.paused && this.player
+      && this.player.hp > 0 && this.player.hp / this.player.maxHp < 0.28) {
+      this._hbTimer = (this._hbTimer || 0) - dt * 1000;
+      if (this._hbTimer <= 0) {
+        this._hbTimer = 1150;
+        AudioSys.play('heartbeat');
+      }
+    }
+
+    if (!frozen && this.state === 'play' && !this.paused && this.auto) {
       this.autoTimer -= dt * 1000;
       if (this.autoTimer <= 0) {
         this.autoTimer = 95;
@@ -6440,6 +6786,11 @@ const Game = {
     requestAnimationFrame((t) => this.loop(t));
   },
 
+  /** 顿帧: 世界凝滞 ms 毫秒 (暴击/击杀/玩家受击/Boss 登场) */
+  hitstop(ms) {
+    this._freezeUntil = performance.now() + ms;
+  },
+
   // ---------------- 开局 / 读档 ----------------
   newRun(challenge, opts) {
     opts = opts || {};
@@ -6455,9 +6806,11 @@ const Game = {
     this.auto = null;
     this.paused = false;
     this.state = 'play';
-    this.won = false;
+    this._fade = 1;
+    this._freezeUntil = 0;
     this.stats = this.defaultStats();
-    this.player = this.makePlayer();
+    this.player = this.makePlayer(opts.cls);
+    this.recalcStats();   // 职业偏移 (acc/eva/crit) 在首帧 HUD 前生效
     FX.clear();
     HUD.clearLog();
     Screens.hideAll();
@@ -6465,7 +6818,8 @@ const Game = {
     AudioSys.startAmbience();
     Meta.newRun();
     this.enterFloor(1, true);
-    this.msg('<b>你踏入了暗渊回廊。</b> 传说第 15 层盘踞着深渊之龙…', 'sys');
+    const cls = this.clsDef();
+    this.msg(`<b>${cls ? cls.icon + ' ' + cls.name : '旅者'}踏入了暗渊回廊。</b> 传说第 15 层盘踞着深渊之龙…`, 'sys');
     this.msg('提示: WASD/方向键移动, 撞击敌人攻击; 按 <b>H</b> 查看完整操作。', 'sys');
     this.saveRun(false);
     HUD.update(this);
@@ -6481,20 +6835,40 @@ const Game = {
     }
   },
 
-  makePlayer() {
+  /** 当前职业定义 (无职业返回 null) */
+  clsDef() {
+    if (!this.player || !this.player.cls) return null;
+    return CONFIG.CLASSES.find(c => c.id === this.player.cls) || null;
+  },
+
+  makePlayer(clsId) {
+    const cls = CONFIG.CLASSES.find(c => c.id === clsId) || null;
     const p = {
-      name: '旅者',
+      name: cls ? cls.name : '旅者',
+      cls: cls ? cls.id : null,
       x: 0, y: 0, anim: null, lunge: null,
-      baseMaxHp: CONFIG.PLAYER.HP, baseMaxMp: CONFIG.PLAYER.MP,
-      baseAtk: CONFIG.PLAYER.ATK, baseDef: CONFIG.PLAYER.DEF,
-      hp: CONFIG.PLAYER.HP, mp: CONFIG.PLAYER.MP,
+      baseMaxHp: CONFIG.PLAYER.HP + (cls ? cls.hp : 0),
+      baseMaxMp: CONFIG.PLAYER.MP + (cls ? cls.mp : 0),
+      baseAtk: CONFIG.PLAYER.ATK, baseDef: CONFIG.PLAYER.DEF + (cls ? cls.def : 0),
+      clsAcc: cls ? cls.acc : 0, clsEva: cls ? cls.eva : 0, clsCrit: cls ? cls.crit : 0,
+      hp: 0, mp: 0,
       maxHp: CONFIG.PLAYER.HP, maxMp: CONFIG.PLAYER.MP,
       atk: CONFIG.PLAYER.ATK, def: 0, acc: 85, eva: 5, crit: 5,
       level: 1, xp: 0, gold: 10,
       inv: [Items.mk('p_hp_s', 3), Items.mk('p_mp', 1)],
-      equip: { weapon: null, weapon2: null, armor: Items.mk('a_cloth'), trinket: null },
-      kills: 0, statuses: [], flags: {}, boons: {}, baseFov: 0,
+      equip: {
+        weapon: cls ? Items.mk(cls.weapon) : null,
+        weapon2: null,
+        armor: Items.mk('a_cloth'),
+        trinket: null,
+      },
+      kills: 0, statuses: [], flags: {}, boons: {}, baseFov: cls ? cls.fov : 0,
     };
+    p.hp = p.baseMaxHp; p.mp = p.baseMaxMp;
+    if (cls) {
+      this.msg(`你以 <b>${cls.icon} ${cls.name}</b> 之名下潜: ${cls.desc}`, 'magic');
+      if (cls.id === 'ranger') Meta.tipOnce('ranged', '🏹 远程武器: 朝敌人方向按方向键即射击 (弓/弩直线, 法杖自动锁定 2MP/发)');
+    }
     this.attachPlayerMethods(p);
     // 局外天赋 (魂晶解锁) 开局生效
     Talents.apply(p, Meta.data.talents || {});
@@ -6518,12 +6892,12 @@ const Game = {
   },
 
   /** 每日挑战: 日期决定种子与因子, 全世界同一天同一张地牢 */
-  startDaily() {
+  startDaily(cls) {
     const d = new Date();
     const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     const rng = new RNG('DAILY-' + ymd);
     const factor = CONFIG.CHALLENGES[rng.int(0, CONFIG.CHALLENGES.length - 1)];
-    this.newRun(factor, { seed: 'DAILY-' + ymd, daily: true });
+    this.newRun(factor, { seed: 'DAILY-' + ymd, daily: true, cls });
     this.msg(`☀️ <b>每日挑战 ${ymd}</b> — 今日因子: ${factor.icon} ${factor.name}`, 'magic');
     HUD.update(this);
   },
@@ -6547,6 +6921,8 @@ const Game = {
     this.paused = false;
     this.auto = null;
     this.won = false;
+    this._fade = 0.6;
+    this._freezeUntil = 0;
     const p = Object.assign({}, d.player);
     p.anim = null; p.lunge = null;
     this.attachPlayerMethods(p);
@@ -6591,9 +6967,9 @@ const Game = {
     const bb = Boons.bonus(p);
     p.atk = p.baseAtk + b.atk + bb.atk;
     p.def = p.baseDef + b.def + bb.def;
-    p.acc = 85 + b.acc + bb.acc;
-    p.eva = 5 + b.eva + bb.eva;
-    p.crit = 5 + b.crit + bb.crit;
+    p.acc = 85 + (p.clsAcc || 0) + b.acc + bb.acc;
+    p.eva = 5 + (p.clsEva || 0) + b.eva + bb.eva;
+    p.crit = 5 + (p.clsCrit || 0) + b.crit + bb.crit;
     p.maxHp = Math.max(10, Math.round((p.baseMaxHp + bb.hp) * (1 + (bb.flag.hpPct || 0))));
     p.maxMp = p.baseMaxMp + b.mp;
     p.flags = Object.assign({}, b.flag, bb.flag);
@@ -6640,6 +7016,7 @@ const Game = {
         : (this.challenge ? `⚠ ${this.challenge.desc}` : STORY.floorLore[(floor - 1) % STORY.floorLore.length]),
       t: performance.now(),
     };
+    this._fade = 1;   // 换层渐隐过渡
     const r = this.fovRadius();
     FOV.compute(this.level, p.x, p.y, r);
     // 铁壁祝福: 每层护盾
@@ -6686,6 +7063,10 @@ const Game = {
   offerBoons() {
     if (this.state !== 'play') return;
     this.boonChoices = Boons.sample(this.rng, 3);
+    // 首次见到诅咒卡: 讲清楚规则
+    if (this.boonChoices.some(id => Boons.def(id) && Boons.def(id).cursed)) {
+      Meta.tipOnce('curse', '😈 红边卡是「诅咒祝福」: 收益更强但附带代价 — 敢要的人走得远');
+    }
     Screens.showBoonChoices(this.boonChoices);
     this.paused = true;
   },
@@ -6777,6 +7158,7 @@ const Game = {
     }
     FX.step(p, nx, ny);
     p.x = nx; p.y = ny;
+    if (!fromAuto) AudioSys.play('step');
     this.onEnterTile();
     this.afterAction();
     return true;
@@ -6805,6 +7187,15 @@ const Game = {
         const idx = L.items.indexOf(it);
         if (idx >= 0) L.items.splice(idx, 1);
         AudioSys.play('pickup');
+      }
+    }
+    // 记忆碎片 (v2.3): 踩上自动阅读
+    if (L.notes && L.notes.length) {
+      const ni = L.notes.findIndex(n => n.x === p.x && n.y === p.y);
+      if (ni >= 0) {
+        const note = L.notes[ni];
+        L.notes.splice(ni, 1);
+        this.readNote(note.idx);
       }
     }
     // 地形提示
@@ -7088,6 +7479,9 @@ const Game = {
     if (old) p.inv.push(old);
     this.recalcStats();
     this.msg(`装备了 ${Affixes.displayName(it)}。`, 'item');
+    if (slot === 'weapon' && Items.isRanged(it)) {
+      Meta.tipOnce('ranged', `🏹 远程武器上手: 朝敌人方向按方向键即射击; 主副手按 <b>X</b> 切换`);
+    }
     AudioSys.play('pickup');
     HUD.refreshInv(this);
     this.afterAction();
@@ -7449,12 +7843,20 @@ const Game = {
     // 视野
     FOV.compute(this.level, p.x, p.y, this.fovRadius());
     // 战斗预警: 进入/脱离战斗
-    const inCombat = this.enemiesVisible().some(e => e.awake);
+    const vis = this.enemiesVisible();
+    const inCombat = vis.some(e => e.awake);
     if (inCombat && !this._inCombat) {
       FX.float(p.x, p.y - 0.9, '❗ 战斗!', '#ff7b72', true);
       AudioSys.play('alert');
     }
     this._inCombat = inCombat;
+    // 一次性教学提示: 低血量 / 精英怪 (v2.3)
+    if (p.hp > 0 && p.hp / p.maxHp < 0.4) {
+      Meta.tipOnce('lowhp', '⚠ 生命垂危! 按 <b>Q</b> 喝治疗药水, 或按 <b>R</b> 原地休息回血 (附近有敌人会中止)');
+    }
+    if (vis.some(e => e.elite && FOV.isVisible(this.level, e.x, e.y))) {
+      Meta.tipOnce('elite', '👑 金冠<b>精英怪</b>更强且带词缀 (名字就是它的招), 但必掉词条装备 — 值得打');
+    }
     // 通关检查 (15 层龙已死)
     if (!this.won && !this.endless && this.floor === 15 && !this.dragonAlive() && this.state === 'play') {
       this.win();
@@ -7695,6 +8097,37 @@ const Game = {
       if (cb) cb();
       HUD.update(this);
     });
+  },
+
+  /** Boss 登场演出 (v2.3): 横幅 + 台词 + 吼声 + 顿帧 — 觉醒瞬间由 AI/Combat 触发 */
+  bossIntro(e) {
+    if (e._introDone) return;
+    e._introDone = true;
+    const line = STORY.bossIntro[e.id] || '深渊在震颤…有强大的存在醒了过来。';
+    this.banner = { text: `⚠ 首领现身 · ${e.name}`, sub: line, t: performance.now() };
+    this.msg(`<b>${e.name}</b> 睁开了眼睛 — ${line}`, 'dmg');
+    AudioSys.play(e.id === 'boss_dragon' ? 'dragon' : 'roar');
+    this.shake(9);
+    this.hitstop(120);
+    Meta.tipOnce('boss', '⚠ Boss 战: 留意半血狂怒, 走廊卡位+远程消耗是保命关键');
+  },
+
+  /** 阅读记忆碎片 (v2.3): 跨局收录进图鉴「回响」页 */
+  readNote(idx) {
+    const text = STORY.notes[idx] || '…纸页已经残破得无法辨认。';
+    const first = Meta.collectNote(idx);
+    const n = Meta.noteCount();
+    AudioSys.play('echo');
+    FX.ring(this.player.x, this.player.y, '#b197fc');
+    this.showStory([
+      { name: `📜 记忆碎片 ${idx + 1}/15`, text: STORY.notesIntro },
+      { name: '掘金队日记', text },
+      { name: '记忆碎片', text: `回响沉入脑海。(已收录 ${n}/15 — 完整故事见「📖 图鉴 · 回响」)` },
+    ], () => {
+      if (first && n >= 15) this.msg('🧩 <b>记忆拼图完成!</b> 掘金队的故事终于完整了。', 'good');
+      HUD.update(this);
+    });
+    Meta.tipOnce('note', '📜 记忆碎片: 每层藏着一枚掘金队日记, 集齐 15 枚在图鉴拼出完整故事');
   },
 
   /** 与 NPC 交谈 */

@@ -32,6 +32,7 @@ const SaveSys = (() => {
       stats: JSON.parse(JSON.stringify(game.stats)),
       player: {
         name: p.name, x: p.x, y: p.y,
+        cls: p.cls || null, clsAcc: p.clsAcc || 0, clsEva: p.clsEva || 0, clsCrit: p.clsCrit || 0,
         hp: p.hp, maxHp: p.maxHp, mp: p.mp, maxMp: p.maxMp,
         baseMaxHp: p.baseMaxHp, baseMaxMp: p.baseMaxMp,
         baseAtk: p.baseAtk, baseDef: p.baseDef,
@@ -57,6 +58,7 @@ const SaveSys = (() => {
         enemies: JSON.parse(JSON.stringify(L.enemies)),
         torches: JSON.parse(JSON.stringify(L.torches)),
         ambushRooms: JSON.parse(JSON.stringify(L.ambushRooms || [])),
+        notes: JSON.parse(JSON.stringify(L.notes || [])),
         talked: JSON.parse(JSON.stringify(L.talked || {})),
         shop: L.shop || null,
         chest: L.chest || null,
@@ -109,6 +111,7 @@ const SaveSys = (() => {
       L.enemies = d.level.enemies;
       L.torches = d.level.torches;
       L.ambushRooms = d.level.ambushRooms || [];
+      L.notes = d.level.notes || [];
       L.talked = d.level.talked || {};
       L.fountainUsed = !!d.level.fountainUsed;
       L.shop = d.level.shop;
