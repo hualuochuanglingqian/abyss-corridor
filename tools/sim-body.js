@@ -784,6 +784,73 @@ simLog('\n=== 4e. v2.3 职业/精英词缀/新祝福/记忆碎片 ===');
   simLog('教学提示: 一次性语义通过');
 }
 
+// ---------- 4f. v2.4: 像素精灵 / 祝福共鸣 / 新手节奏 ----------
+simLog('\n=== 4f. v2.4 像素精灵/祝福共鸣/新手节奏 ===');
+{
+  // sprite 数据完整性: 行宽一致、调色板齐全、无未知字符
+  const spriteIds = Object.keys(SPRITES);
+  simAssert(spriteIds.length >= 24, `精灵: 应有 ≥24 个 (实际 ${spriteIds.length})`);
+  let spriteErrs = 0;
+  for (const id of spriteIds) {
+    const def = SPRITES[id];
+    const h = def.map.length;
+    if (h !== 8) { spriteErrs++; simAssert(false, `精灵 ${id}: 应 8 行 (实际 ${h})`); continue; }
+    for (const row of def.map) {
+      if (row.length !== 8) { spriteErrs++; simAssert(false, `精灵 ${id}: 行宽 ${row.length} ≠ 8: "${row}"`); break; }
+      for (const ch of row) {
+        if (ch === '.' || ch === ' ') continue;
+        if (!(ch in def.pal) && !(ch in SPRITE_DEF_PAL)) {
+          spriteErrs++;
+          simAssert(false, `精灵 ${id}: 字符 '${ch}' 无调色板定义`);
+        }
+      }
+    }
+  }
+  if (!spriteErrs) simLog(`像素精灵: ${spriteIds.length} 个全部通过位图校验`);
+  // 覆盖关键实体: 三职业 / 全部普通敌 + Boss / NPC 设施
+  for (const must of ['player_warrior', 'player_ranger', 'player_mage', 'rat', 'boss_dragon', 'npc_oracle', 'npc_shopkeep']) {
+    simAssert(!!SPRITES[must], `精灵: 缺少关键形象 ${must}`);
+  }
+  const enemyIds = Object.keys(ENEMIES);
+  const missingEnemy = enemyIds.filter(id => !SPRITES[id]);
+  simAssert(missingEnemy.length === 0, `精灵: 敌人缺形象 ${missingEnemy.join(',')}`);
+
+  // 祝福共鸣: 3 种战系 → atk +3; 3 种奥系 → mp +12; 3 种生系 → floorHeal 8
+  const res = { boons: {}, baseMaxHp: 100, baseMaxMp: 20, baseAtk: 3, baseDef: 0, equip: {} };
+  Boons.give(res, 'might'); Boons.give(res, 'rage'); Boons.give(res, 'hunter');
+  let bb1 = Boons.bonus(res);
+  simAssert(bb1.atk === 2 + 3, `共鸣: 3战系攻击应 2+3=5 (实际 ${bb1.atk})`);  // might2 + 共鸣3
+  simAssert(Boons.activeResonances(res).includes('war'), '共鸣: war 未激活');
+  simAssert(!bb1.flag.floorHeal, '共鸣: 生系未满不应出现 floorHeal');
+  Boons.give(res, 'spring'); Boons.give(res, 'scholar'); Boons.give(res, 'eagle');
+  bb1 = Boons.bonus(res);
+  simAssert(bb1.mp === 12, `共鸣: 3奥系法力上限应 +12 (实际 ${bb1.mp})`);
+  simAssert(Boons.activeResonances(res).includes('war') && Boons.activeResonances(res).includes('magic'), '共鸣: war+magic 应同时激活');
+  // 混入诅咒不该干扰计数
+  Boons.give(res, 'gluttony');
+  simAssert(Boons.activeResonances(res).length === 2, '共鸣: 诅咒卡不计入 tag');
+  // 2+1 重复不算 3 种
+  const dup = { boons: {}, baseMaxHp: 100, baseMaxMp: 20, baseAtk: 3, baseDef: 0, equip: {} };
+  Boons.give(dup, 'might'); Boons.give(dup, 'might'); Boons.give(dup, 'hunter');
+  simAssert(Boons.activeResonances(dup).length === 0, '共鸣: 重复祝福不应凑满 3 种');
+  simLog(`共鸣系统: 战/奥/生三系验证通过 (当前激活 ${Boons.activeResonances(res).length} 系)`);
+
+  // 新手节奏: 前 3 层无伏击房, 前 2 层减怪
+  let earlyAmbush = 0, lateAmbush = 0, f1Enemies = 0, f6Enemies = 0;
+  for (const seed of ['PAC-A', 'PAC-B']) {
+    for (let f = 1; f <= 8; f++) {
+      const L = MapGen.generate(seed, f);
+      if (f <= 3 && L.ambushRooms.length) earlyAmbush++;
+      if (f >= 4 && L.ambushRooms.length) lateAmbush++;
+      if (f === 1) f1Enemies += L.enemies.length;
+      if (f === 6) f6Enemies += L.enemies.length;
+    }
+  }
+  simAssert(earlyAmbush === 0, `新手节奏: 前 3 层不应有伏击房 (${earlyAmbush} 处)`);
+  simAssert(f1Enemies / 2 <= f6Enemies / 2 + 2, `新手节奏: 第 1 层敌数 (${f1Enemies / 2}) 应明显少于第 6 层 (${f6Enemies / 2})`);
+  simLog(`新手节奏: 前3层伏击 ${earlyAmbush} 处 / 4层后 ${lateAmbush} 处; F1 均敌 ${(f1Enemies / 2).toFixed(1)} vs F6 ${(f6Enemies / 2).toFixed(1)}`);
+}
+
 simLog('\n=== 结果 ===');
 if (simFailures === 0) simLog('✅ 全部检查通过');
 else simLog(`❌ ${simFailures} 项失败`);

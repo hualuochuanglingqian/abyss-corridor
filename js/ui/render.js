@@ -35,6 +35,7 @@ const Render = (() => {
     ctx = cv.getContext('2d');
     cv.width = W * TS;
     cv.height = H * TS;
+    ctx.imageSmoothingEnabled = false;   // 像素精灵硬边 (v2.4)
     staticCv = document.createElement('canvas');
     staticCv.width = W * TS;
     staticCv.height = H * TS;
@@ -518,26 +519,30 @@ const Render = (() => {
           case T.ALTAR:
             drawEmoji('⚱️', px + TS / 2, py + TS / 2, now, 0.8);
             break;
-          case T.SHOPKEEP:
-            drawEmoji('🧞', px + TS / 2, py + TS / 2, now, 0.9);
+          case T.SHOPKEEP: {
+            const sprK = SpriteLib.get('npc_shopkeep');
+            if (sprK) ctx.drawImage(sprK, px + TS / 2 - sprK.width / 2, py + TS / 2 - sprK.height / 2 + 1);
+            else drawEmoji('🧞', px + TS / 2, py + TS / 2, now, 0.9);
             break;
+          }
           case T.ORACLE: {
             blitGlow(ctx, x, y, 1.0, '#b197fc', 0.26 + 0.08 * Math.sin(now / 350));
-            drawEmoji('🔮', px + TS / 2, py + TS / 2, now, 0.8, 'rgba(177,151,252,0.55)');
+            const sprO = SpriteLib.get('npc_oracle');
+            if (sprO) ctx.drawImage(sprO, px + TS / 2 - sprO.width / 2, py + TS / 2 - sprO.height / 2 + 1);
+            else drawEmoji('🔮', px + TS / 2, py + TS / 2, now, 0.8, 'rgba(177,151,252,0.55)');
             break;
           }
           case T.CAPTIVE: {
-            drawEmoji('🙍', px + TS / 2, py + TS / 2, now, 0.8);
-            ctx.save();
-            ctx.font = `${Math.round(TS * 0.34)}px ${EMOJI_FONT}`;
-            ctx.textAlign = 'center';
-            ctx.fillText('💧', px + TS * 0.74, py + TS * 0.28);
-            ctx.restore();
+            const sprC = SpriteLib.get('npc_captive');
+            if (sprC) ctx.drawImage(sprC, px + TS / 2 - sprC.width / 2, py + TS / 2 - sprC.height / 2 + 1);
+            else drawEmoji('🙍', px + TS / 2, py + TS / 2, now, 0.8);
             break;
           }
           case T.STATUE: {
             blitGlow(ctx, x, y, 0.9, '#9aa5b5', 0.15 + 0.06 * Math.sin(now / 500));
-            drawEmoji('🗿', px + TS / 2, py + TS / 2, now, 0.8);
+            const sprS = SpriteLib.get('npc_statue');
+            if (sprS) ctx.drawImage(sprS, px + TS / 2 - sprS.width / 2, py + TS / 2 - sprS.height / 2 + 1);
+            else drawEmoji('🗿', px + TS / 2, py + TS / 2, now, 0.8);
             break;
           }
           case T.TORCH: {
@@ -696,14 +701,21 @@ const Render = (() => {
 
     // 战斗状态: 环色随敌情变化 (蓝=安全, 红=被怪盯上)
     const inCombat = game.enemiesVisible && game.enemiesVisible().some(e => e.awake && e.hp > 0);
-    // 职业形象 (v2.3): 战士🤺 / 游侠🧝 / 法师🧙
-    const cls = p.cls && CONFIG.CLASSES ? CONFIG.CLASSES.find(c => c.id === p.cls) : null;
-    const pGlyph = cls ? cls.glyph : '🧙';
-    // 受击闪白 (v2.3)
+    // 像素精灵形象 (v2.4): 战士/游侠/法师; 受击闪白用 brightness 滤镜
+    const clsId = p.cls || 'mage';
+    const spr = SpriteLib.get('player_' + clsId);
     const flashed = p.flash && (now - p.flash) < 130;
     if (flashed) blitGlow(ctx, p.x + ox, p.y + oy, 0.8, '#ffffff', 0.55);
-    drawEmoji(pGlyph, px, py, now, flashed ? 1.12 : 1.06,
-      flashed ? 'rgba(255,255,255,0.95)' : (inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)'));
+    if (spr) {
+      ctx.save();
+      if (flashed) ctx.filter = 'brightness(2.4) saturate(0.2)';
+      ctx.drawImage(spr, px - spr.width / 2, py - spr.height / 2 + 1);
+      ctx.restore();
+    } else {
+      const cls = p.cls && CONFIG.CLASSES ? CONFIG.CLASSES.find(c => c.id === p.cls) : null;
+      drawEmoji(cls ? cls.glyph : '🧙', px, py, now, 1.06,
+        flashed ? 'rgba(255,255,255,0.95)' : (inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)'));
+    }
     ctx.save();
     ctx.strokeStyle = inCombat ? 'rgba(255,110,90,0.7)' : 'rgba(165,200,255,0.65)';
     ctx.lineWidth = 1.6;
@@ -741,11 +753,23 @@ const Render = (() => {
       ctx.ellipse(px, py + TS * 0.32, TS * (e.boss ? 0.4 : 0.28), TS * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    // 受击闪白 (v2.3): 白色光晕 + 放大 + 白描边, 130ms
+    // 受击闪白 (v2.3): 白色光晕 + brightness 滤镜, 130ms; 像素精灵 (v2.4)
     const flashed = isVis && e.flash && (now - e.flash) < 130;
     if (flashed) blitGlow(ctx, e.x + ox, e.y + oy, 0.85, '#ffffff', 0.6);
-    drawEmoji(e.glyph, px, py, now, flashed ? (e.boss ? 1.3 : 1.08) : (e.boss ? 1.2 : 0.98),
-      flashed ? 'rgba(255,255,255,0.95)' : (isVis && e.boss ? 'rgba(255,90,60,0.8)' : null));
+    const spr = SpriteLib.get(e.id);
+    if (spr) {
+      ctx.save();
+      if (flashed) ctx.filter = 'brightness(2.6) saturate(0.2)';
+      const scale = e.boss ? 1.22 : 1;
+      const dw = spr.width * scale, dh = spr.height * scale;
+      const bob = Math.sin(now / 380 + px * 0.13) * 1.2;
+      if (!isVis) ctx.globalAlpha = 0.45;
+      ctx.drawImage(spr, px - dw / 2, py - dh / 2 + bob);
+      ctx.restore();
+    } else {
+      drawEmoji(e.glyph, px, py, now, flashed ? (e.boss ? 1.3 : 1.08) : (e.boss ? 1.2 : 0.98),
+        flashed ? 'rgba(255,255,255,0.95)' : (isVis && e.boss ? 'rgba(255,90,60,0.8)' : null));
+    }
 
     if (Status.has(e, 'frozen')) {
       ctx.globalAlpha = 0.5;

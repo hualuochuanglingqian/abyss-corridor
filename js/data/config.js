@@ -3,7 +3,7 @@
 'use strict';
 
 const CONFIG = {
-  VERSION: '2.3.0',       // 与 CHANGELOG.md 同步, 标题画面显示
+  VERSION: '2.4.0',       // 与 CHANGELOG.md 同步, 标题画面显示
   TILE: 24,               // 图块像素
   MAP_W: 48,              // 地图宽 (格)
   MAP_H: 30,              // 地图高 (格)

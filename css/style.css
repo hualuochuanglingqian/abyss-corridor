@@ -359,6 +359,10 @@ body {
 .challenge-card .cc-name { color: var(--gold); margin: 8px 0; font-size: 14px; }
 .challenge-card .cc-desc { font-size: 11.5px; color: var(--text); line-height: 1.7; min-height: 66px; }
 
+/* 共鸣芯片 (v2.4): 激活亮金 / 进度暗色 */
+.boon-chip.res-on { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 6px rgba(217,171,74,.35) inset; }
+.boon-chip.res-dim { opacity: .72; border-style: dashed; }
+
 /* ---- 职业选择 / 死亡建议 / 回响图鉴 (v2.3) ---- */
 .class-card { min-width: 220px; max-width: 250px; cursor: pointer; }
 .class-card .bc-key { color: var(--gold-dim); }

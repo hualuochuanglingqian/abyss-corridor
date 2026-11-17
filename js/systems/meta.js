@@ -26,6 +26,7 @@ const ACHIEVEMENTS = [
   { id: 'cursed_pact',  name: '敢于诅咒',     icon: '😈', desc: '接受一张诅咒祝福' },
   { id: 'elite_10',     name: '精英收割机',   icon: '👑', desc: '单局击败 10 只精英怪' },
   { id: 'echoes_full',  name: '记忆拼图',     icon: '🧩', desc: '收齐全部 15 枚记忆碎片' },
+  { id: 'resonance_first', name: '共鸣初醒',  icon: '🌟', desc: '第一次激活祝福共鸣' },
 ];
 
 const META_KEY = 'abyss_corridor_meta_v1';

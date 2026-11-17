@@ -377,6 +377,10 @@ body {
 .challenge-card .cc-name { color: var(--gold); margin: 8px 0; font-size: 14px; }
 .challenge-card .cc-desc { font-size: 11.5px; color: var(--text); line-height: 1.7; min-height: 66px; }
 
+/* 共鸣芯片 (v2.4): 激活亮金 / 进度暗色 */
+.boon-chip.res-on { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 6px rgba(217,171,74,.35) inset; }
+.boon-chip.res-dim { opacity: .72; border-style: dashed; }
+
 /* ---- 职业选择 / 死亡建议 / 回响图鉴 (v2.3) ---- */
 .class-card { min-width: 220px; max-width: 250px; cursor: pointer; }
 .class-card .bc-key { color: var(--gold-dim); }
@@ -613,6 +617,7 @@ body { font-size: 12px; }
           <li>👑 金色光环的是<b>精英怪</b>, 更强但必掉好货; 名字里的<b>词缀</b>(迅捷/灼热/虹吸…)就是它的招 — 悬停可查。🚪 某些房间进门会<b>关门打狗</b>, 清场开宝箱。</li>
           <li>📜 每层藏着一枚泛紫光的<b>记忆碎片</b>(掘金队日记), 集齐 15 枚在图鉴「回响」拼出完整故事。</li>
           <li>🪓 「处决者」祝福专收残血; 😈 「无底之胃」金币+60% 但药水减半 — 诅咒不全是坏事。</li>
+          <li>🌟 <b>祝福共鸣</b>: 集齐 3 种同系(⚔️战/🔮奥/🌿生)祝福自动激活共鸣 — 想好流派再选。</li>
           <li>💎 死亡/通关结算<b>魂晶</b>, 回主菜单可在「天赋」中永久变强。</li>
           <li>🎯 挑战因子 (疯狂/浓雾/坚壁) 更难, 魂晶收益 ×1.5。</li>
         </ul>
@@ -921,7 +926,7 @@ const Util = {
 'use strict';
 
 const CONFIG = {
-  VERSION: '2.3.0',       // 与 CHANGELOG.md 同步, 标题画面显示
+  VERSION: '2.4.0',       // 与 CHANGELOG.md 同步, 标题画面显示
   TILE: 24,               // 图块像素
   MAP_W: 48,              // 地图宽 (格)
   MAP_H: 30,              // 地图高 (格)
@@ -1103,6 +1108,396 @@ const Tiles = {
   blocksMove(id) { return this.def(id).blocksMove; },
   blocksSight(id) { return this.def(id).blocksSight; },
 };
+
+</script>
+<script>
+// ============ SPRITES: 程序化像素精灵 (v2.4 像素觉醒) ============
+// 每个 sprite 是 8×8 字符位图: 一个字符一像素, '.' 为透明。
+// 'o' 统一为深色描边。SpriteLib 预渲染到离屏画布, drawImage 放大时关闭平滑 → 硬像素。
+// 设计原则: 8×8 里只保留剪影 + 2~3 个特征色, 靠轮廓辨认 (向 UltimateSpritescan/Pixel Dungeon 致敬)。
+
+'use strict';
+
+// 全局调色 (各 sprite 可覆盖)
+const SPRITE_DEF_PAL = {
+  o: '#101318',   // 描边
+  f: '#e8b98a',   // 肤色
+  e: '#141018',   // 眼
+};
+
+const SPRITES = {
+  // ---------------- 玩家三职业 ----------------
+  player_warrior: {
+    pal: { r: '#e5484d', h: '#9aa5b5', s: '#6f7d92' },
+    map: [
+      '...rr...',
+      '..ohho..',
+      '.ohhhho.',
+      '.ofefo..',
+      '.ossso..',
+      '.ossso..',
+      '..o.o...',
+      '..o.o...',
+    ],
+  },
+  player_ranger: {
+    pal: { h: '#5f8f4a', g: '#3f6f38', b: '#8a5a2b' },
+    map: [
+      '..ohh...',
+      '.ohhho.b',
+      '.ofefo.b',
+      '.ogggo.b',
+      '..ogg..b',
+      '..ogg..b',
+      '..o.o...',
+      '..o.o...',
+    ],
+  },
+  player_mage: {
+    pal: { p: '#8a5fd0', s: '#8a5a2b' },
+    map: [
+      '...pp...',
+      '..pppp..',
+      '.ofefo.s',
+      '.opppo.s',
+      '..oppo.s',
+      '..oppo.s',
+      '..o.o...',
+      '..o.o...',
+    ],
+  },
+
+  // ---------------- 普通敌人 ----------------
+  rat: {
+    pal: { g: '#9c8472', p: '#e8a0a0' },
+    map: [
+      '.o....o.',
+      'opo..opo',
+      'oggggggo',
+      'ogegggeo',
+      'oggggggo',
+      '.oggpgo.',
+      '..oooo..',
+      '........',
+    ],
+  },
+  bat: {
+    pal: { W: '#7a4a8f', b: '#4a2a5a', e: '#ff5a4a' },
+    map: [
+      '........',
+      'W......W',
+      'WW....WW',
+      'WWWooWWW',
+      '.WobboW.',
+      '..beeb..',
+      '...bb...',
+      '........',
+    ],
+  },
+  spider: {
+    pal: { l: '#3f4a28', b: '#4a5a28', e: '#c9e04a' },
+    map: [
+      '........',
+      '.l....l.',
+      '.lobbol.',
+      'l.beeb.l',
+      'l.obbo.l',
+      '.l.oo.l.',
+      'l..ll..l',
+      '........',
+    ],
+  },
+  snake: {
+    pal: { g: '#5fae5f', t: '#ff5a4a' },
+    map: [
+      '....oot.',
+      '...ogeo.',
+      '.oooggo.',
+      'ogggoo..',
+      'ogggo...',
+      '..oo....',
+      '........',
+      '........',
+    ],
+  },
+  skeleton: {
+    pal: { w: '#e8e0c8' },
+    map: [
+      '..oooo..',
+      '.owwwwo.',
+      '.oweewo.',
+      '..owwo..',
+      '.owwwwo.',
+      '..owwo..',
+      '..o..o..',
+      '........',
+    ],
+  },
+  zombie: {
+    pal: { z: '#6f8f5a', c: '#2f3a2a' },
+    map: [
+      '..oooo..',
+      '.ozzezo.',
+      '.ozzzzo.',
+      '.ozcczo.',
+      '.ozzzzo.',
+      '..ozzo..',
+      '..z..z..',
+      '........',
+    ],
+  },
+  ghost: {
+    pal: { w: '#c9d8ea' },
+    map: [
+      '..oooo..',
+      '.owwwwo.',
+      '.oweewo.',
+      '.owwwwo.',
+      '.owwwwo.',
+      '.owwwwo.',
+      '.oww.wo.',
+      '........',
+    ],
+  },
+  imp: {
+    pal: { k: '#2a1a1a', r: '#d95a4a', y: '#ffd43b' },
+    map: [
+      '.ko..ok.',
+      '.orrrro.',
+      '.oryyro.',
+      '.orrrro.',
+      '.orrrro.',
+      '..orro..',
+      '..o..o..',
+      '........',
+    ],
+  },
+  wisp: {
+    pal: { a: '#ff9538', y: '#ffd43b' },
+    map: [
+      '...aa...',
+      '..aaa...',
+      '..ayya..',
+      '.ayyyya.',
+      '.ayyyya.',
+      '..ayya..',
+      '...aa...',
+      '........',
+    ],
+  },
+  mage: {
+    pal: { m: '#5a3a8a', c: '#7ad9e8', s: '#8a5a2b' },
+    map: [
+      '..oooo..',
+      '.ommmmo.',
+      '.omccmo.',
+      '.ommmm.s',
+      '..ommo.s',
+      '..ommo.s',
+      '..o..o.s',
+      '........',
+    ],
+  },
+  scorpion: {
+    pal: { c: '#c9944a', b: '#a06a2a', t: '#8a4a2a', l: '#6a4a1a' },
+    map: [
+      '.c....t.',
+      'cc...ot.',
+      '.obbbbo.',
+      '.beeeeb.',
+      '..obbo..',
+      '.l.oo.l.',
+      'l..oo..l',
+      '........',
+    ],
+  },
+  drake: {
+    pal: { g: '#5fae3f', W: '#3f7f2f', y: '#ffd43b' },
+    map: [
+      '......o.',
+      '.Wo.ogy.',
+      'WWogggo.',
+      '.oggggo.',
+      '..ogggo.',
+      '...o.o..',
+      '........',
+      '........',
+    ],
+  },
+  boar: {
+    pal: { b: '#8a5a3a', p: '#e8a0a0', t: '#f0e8d8' },
+    map: [
+      '..oooo..',
+      '.obbbbo.',
+      'pebbbbbo',
+      'tbbbbbo.',
+      '.obbbbo.',
+      '..oooo..',
+      '........',
+      '........',
+    ],
+  },
+  healer: {
+    pal: { y: '#ffd43b', m: '#2a3a6f' },
+    map: [
+      '...yy...',
+      '..oooo..',
+      '.ommmmo.',
+      '.ommmmo.',
+      '.omymmo.',
+      '..ommo..',
+      '..o..o..',
+      '........',
+    ],
+  },
+  crab: {
+    pal: { c: '#d97a5a', r: '#c95a3a', y: '#ffd43b', l: '#8a3a2a' },
+    map: [
+      'cc....cc',
+      '.c.oo.c.',
+      '.orrrro.',
+      '.oryyro.',
+      '.orrrro.',
+      '..l..l..',
+      '.l.ll.l.',
+      '........',
+    ],
+  },
+
+  // ---------------- Boss ----------------
+  boss_butcher: {
+    pal: { p: '#e8b98a', s: '#3a3f4a', a: '#a02a2a', w: '#c9c4b4', b: '#5a3a1a' },
+    map: [
+      '..oooo.w',
+      '.oppppow',
+      '.opeepow',
+      '.osssob.',
+      'osaaaso.',
+      'osaaaso.',
+      '..o..o..',
+      '..o..o..',
+    ],
+  },
+  boss_king: {
+    pal: { y: '#ffd43b', w: '#e8e0c8' },
+    map: [
+      '.y.yy.y.',
+      '.yyyyyy.',
+      '.owwwwo.',
+      '.oweewo.',
+      '..owwo..',
+      '.owwwwo.',
+      '..o..o..',
+      '..o..o..',
+    ],
+  },
+  boss_dragon: {
+    pal: { r: '#ff8c3a', W: '#b04a1a', y: '#ffd43b', b: '#ffaa50' },
+    map: [
+      'W......W',
+      'WW.oo.WW',
+      'WWorrroW',
+      '.Worryo.',
+      '..orrro.',
+      '..obbbo.',
+      '..o..o..',
+      '........',
+    ],
+  },
+
+  // ---------------- NPC / 设施 ----------------
+  npc_oracle: {
+    pal: { v: '#6a4a9f', c: '#7ad9e8', m: '#2a1a3a' },
+    map: [
+      '..oooo..',
+      '.ovvvvo.',
+      '.ovmmvo.',
+      '.ovvvvo.',
+      '.ovccvo.',
+      '..ovvo..',
+      '..o..o..',
+      '........',
+    ],
+  },
+  npc_captive: {
+    pal: { h: '#5a3a1a', c: '#8a8f9a' },
+    map: [
+      '..oooo..',
+      '.ohhhho.',
+      '.ofefo..',
+      '.occco..',
+      '..offo..',
+      '..o..o..',
+      '........',
+      '........',
+    ],
+  },
+  npc_statue: {
+    pal: { G: '#7a8290', D: '#4a5058' },
+    map: [
+      '..oooo..',
+      '.oGGGGo.',
+      '.oGeGeo.',
+      '.oGDGGo.',
+      '.oGGGGo.',
+      '..oGGo..',
+      '..o..o..',
+      '........',
+    ],
+  },
+  npc_shopkeep: {
+    pal: { y: '#d9ab4a', b: '#6a4a2a' },
+    map: [
+      '..oooo..',
+      '.oyyyyo.',
+      '.ofefo..',
+      '.obbbo..',
+      '.obybo..',
+      '..obbo..',
+      '..o..o..',
+      '........',
+    ],
+  },
+};
+
+// 渲染库: 懒初始化 (headless 环境无 document, 只在浏览器里建缓存)
+const SpriteLib = (() => {
+  const cache = new Map();
+  const SCALE = 3;   // 8px 位图 × 3 = 24px = 一格
+
+  function make(id) {
+    const def = SPRITES[id];
+    if (!def || typeof document === 'undefined') return null;
+    const rows = def.map;
+    const h = rows.length, w = rows[0].length;
+    const cv = document.createElement('canvas');
+    cv.width = w * SCALE;
+    cv.height = h * SCALE;
+    const c = cv.getContext('2d');
+    for (let y = 0; y < h; y++) {
+      const row = rows[y];
+      for (let x = 0; x < w; x++) {
+        const ch = row[x];
+        if (ch === '.' || ch === ' ') continue;
+        const col = (def.pal && def.pal[ch]) || SPRITE_DEF_PAL[ch] || '#ff00ff';
+        c.fillStyle = col;
+        c.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+      }
+    }
+    return cv;
+  }
+
+  function get(id) {
+    if (!SPRITES[id]) return null;
+    let cv = cache.get(id);
+    if (!cv) { cv = make(id); if (!cv) return null; cache.set(id, cv); }
+    return cv;
+  }
+
+  function has(id) { return !!SPRITES[id]; }
+
+  return { get, has, SCALE, _cache: cache };
+})();
 
 </script>
 <script>
@@ -1760,30 +2155,31 @@ const Floors = {
 'use strict';
 
 const BOONS = {
-  might:      { name: '蛮力',   icon: '💪', desc: '攻击 +2', stat: { atk: 2 } },
-  vigor:      { name: '铁骨',   icon: '❤️', desc: '生命上限 +12', stat: { hp: 12 } },
-  agility:    { name: '敏捷',   icon: '🌀', desc: '闪避 +6', stat: { eva: 6 } },
-  eagle:      { name: '鹰眼',   icon: '🦅', desc: '命中 +8, 视野 +1', stat: { acc: 8 }, flag: { farSight: 1 } },
-  hunter:     { name: '猎手',   icon: '🎯', desc: '暴击 +8%', stat: { crit: 8 } },
-  reaper:     { name: '汲血术', icon: '🩸', desc: '击杀敌人恢复 3 生命', flag: { killHeal: 3 } },
-  spring:     { name: '法泉',   icon: '💧', desc: '每回合回复 1 法力', flag: { mpSpring: 1 } },
-  thorns:     { name: '荆棘',   icon: '🌵', desc: '近战攻击你的敌人受 3 点反伤', flag: { thorns: 3 } },
-  rage:       { name: '狂怒',   icon: '😡', desc: '生命低于 40% 时攻击 +4', flag: { lowHpAtk: 4 } },
+  // tag: 流派标签 — 持有 3 种同 tag 祝福触发「共鸣」(v2.4)
+  might:      { name: '蛮力',   icon: '💪', tag: 'war', desc: '攻击 +2', stat: { atk: 2 } },
+  vigor:      { name: '铁骨',   icon: '❤️', tag: 'survival', desc: '生命上限 +12', stat: { hp: 12 } },
+  agility:    { name: '敏捷',   icon: '🌀', tag: 'survival', desc: '闪避 +6', stat: { eva: 6 } },
+  eagle:      { name: '鹰眼',   icon: '🦅', tag: 'magic', desc: '命中 +8, 视野 +1', stat: { acc: 8 }, flag: { farSight: 1 } },
+  hunter:     { name: '猎手',   icon: '🎯', tag: 'war', desc: '暴击 +8%', stat: { crit: 8 } },
+  reaper:     { name: '汲血术', icon: '🩸', tag: 'survival', desc: '击杀敌人恢复 3 生命', flag: { killHeal: 3 } },
+  spring:     { name: '法泉',   icon: '💧', tag: 'magic', desc: '每回合回复 1 法力', flag: { mpSpring: 1 } },
+  thorns:     { name: '荆棘',   icon: '🌵', tag: 'survival', desc: '近战攻击你的敌人受 3 点反伤', flag: { thorns: 3 } },
+  rage:       { name: '狂怒',   icon: '😡', tag: 'war', desc: '生命低于 40% 时攻击 +4', flag: { lowHpAtk: 4 } },
   scavenger:  { name: '拾荒者', icon: '💰', desc: '获取金币 +30%', flag: { goldMul: 1.3 } },
-  scholar:    { name: '学者',   icon: '📖', desc: '获取经验 +25%', flag: { xpMul: 1.25 } },
-  alchemist:  { name: '药剂师', icon: '⚗️', desc: '药水效果 +50%', flag: { potionMul: 1.5 } },
-  aegis:      { name: '铁壁',   icon: '🛡', desc: '每层开始时获得 8 点护盾', flag: { floorShield: 8 } },
-  ghost:      { name: '残影',   icon: '👤', desc: '闪避 +4, 闪避成功回复 2 法力', stat: { eva: 4 }, flag: { dodgeMp: 2 } },
-  slayer:     { name: '破军',   icon: '⚔️', desc: '对 Boss 伤害 +25%', flag: { bossDmgMul: 1.25 } },
-  pyromancer: { name: '烈焰亲和', icon: '🔥', desc: '火球术伤害 +60%', flag: { fireMul: 1.6 } },
+  scholar:    { name: '学者',   icon: '📖', tag: 'magic', desc: '获取经验 +25%', flag: { xpMul: 1.25 } },
+  alchemist:  { name: '药剂师', icon: '⚗️', tag: 'survival', desc: '药水效果 +50%', flag: { potionMul: 1.5 } },
+  aegis:      { name: '铁壁',   icon: '🛡', tag: 'survival', desc: '每层开始时获得 8 点护盾', flag: { floorShield: 8 } },
+  ghost:      { name: '残影',   icon: '👤', tag: 'magic', desc: '闪避 +4, 闪避成功回复 2 法力', stat: { eva: 4 }, flag: { dodgeMp: 2 } },
+  slayer:     { name: '破军',   icon: '⚔️', tag: 'war', desc: '对 Boss 伤害 +25%', flag: { bossDmgMul: 1.25 } },
+  pyromancer: { name: '烈焰亲和', icon: '🔥', tag: 'magic', desc: '火球术伤害 +60%', flag: { fireMul: 1.6 } },
 
   // ---- v2.3 流派祝福 ----
-  venom:      { name: '毒刃',   icon: '☠️', desc: '攻击 20% 使敌人中毒 (每回合伤害随攻击成长)', flag: { poisonOnHit: 0.2 } },
-  ember:      { name: '燃刃',   icon: '🔥', desc: '攻击 20% 点燃敌人 (2 回合持续伤害)', flag: { burnOnHit: 0.2 } },
-  flurry:     { name: '连击',   icon: '⚔️', desc: '攻击 18% 概率追加一击', flag: { comboOnHit: 0.18 } },
-  breaker:    { name: '破甲',   icon: '🔨', desc: '无视敌人一半防御 — 铠蝎岩蟹的天敌', flag: { pierce: 1 } },
-  lifebloom:  { name: '回春',   icon: '🌿', desc: '每回合回复 1 生命', flag: { regen: 1 } },
-  executioner:{ name: '处决者', icon: '🪓', desc: '血量低于 30% 的敌人受到伤害 +50% — 收割者流派', flag: { execDmg: 0.5 } },
+  venom:      { name: '毒刃',   icon: '☠️', tag: 'war', desc: '攻击 20% 使敌人中毒 (每回合伤害随攻击成长)', flag: { poisonOnHit: 0.2 } },
+  ember:      { name: '燃刃',   icon: '🔥', tag: 'war', desc: '攻击 20% 点燃敌人 (2 回合持续伤害)', flag: { burnOnHit: 0.2 } },
+  flurry:     { name: '连击',   icon: '⚔️', tag: 'war', desc: '攻击 18% 概率追加一击', flag: { comboOnHit: 0.18 } },
+  breaker:    { name: '破甲',   icon: '🔨', tag: 'war', desc: '无视敌人一半防御 — 铠蝎岩蟹的天敌', flag: { pierce: 1 } },
+  lifebloom:  { name: '回春',   icon: '🌿', tag: 'survival', desc: '每回合回复 1 生命', flag: { regen: 1 } },
+  executioner:{ name: '处决者', icon: '🪓', tag: 'war', desc: '血量低于 30% 的敌人受到伤害 +50% — 收割者流派', flag: { execDmg: 0.5 } },
 
   // ---- 诅咒祝福: 高风险高收益 (40% 概率混入三选一) ----
   devil:     { name: '恶魔契约', icon: '😈', cursed: true, desc: '攻击 +8; 代价: 每层开始中毒 3 回合', stat: { atk: 8 }, flag: { poisonPerFloor: 3 } },
@@ -1791,6 +2187,14 @@ const BOONS = {
   titan:     { name: '泰坦之诅', icon: '🗿', cursed: true, desc: '防御 +6; 代价: 闪避 -25', stat: { def: 6, eva: -25 } },
   gluttony:  { name: '无底之胃', icon: '🍖', cursed: true, desc: '金币 +60%; 代价: 药水效果减半 — 贪婪者的胃', flag: { goldMul: 1.6, potionMul: -0.5 } },
 };
+
+// 共鸣表 (v2.4): 同 tag 持有 ≥3 种不同祝福时激活, 效果并入 bonus()
+const RESONANCES = {
+  war:      { name: '战意共鸣', icon: '⚔️', desc: '持有 3 种战系祝福: 攻击 +3', stat: { atk: 3 } },
+  magic:    { name: '奥术共鸣', icon: '🔮', desc: '持有 3 种奥系祝福: 法力上限 +12', stat: { mp: 12 } },
+  survival: { name: '生机共鸣', icon: '🌿', desc: '持有 3 种生系祝福: 每层开始恢复 8 生命', flag: { floorHeal: 8 } },
+};
+const RESONANCE_TAG_NAMES = { war: '战', magic: '奥', survival: '生' };
 
 const Boons = {
   def(id) { return BOONS[id]; },
@@ -1810,9 +2214,9 @@ const Boons = {
     return picks;
   },
 
-  /** 汇总玩家身上所有祝福的属性加成 */
+  /** 汇总玩家身上所有祝福的属性加成 (含共鸣) */
   bonus(p) {
-    const b = { atk: 0, hp: 0, def: 0, eva: 0, acc: 0, crit: 0, flag: {} };
+    const b = { atk: 0, hp: 0, def: 0, eva: 0, acc: 0, crit: 0, mp: 0, flag: {} };
     if (!p.boons) return b;
     for (const id in p.boons) {
       const d = BOONS[id];
@@ -1825,6 +2229,7 @@ const Boons = {
         b.eva += (d.stat.eva || 0) * n;
         b.acc += (d.stat.acc || 0) * n;
         b.crit += (d.stat.crit || 0) * n;
+        b.mp += (d.stat.mp || 0) * n;
       }
       if (d.flag) {
         for (const k in d.flag) {
@@ -1832,7 +2237,41 @@ const Boons = {
         }
       }
     }
+    // 共鸣 (v2.4)
+    for (const r of this.activeResonances(p)) {
+      const d = RESONANCES[r];
+      if (d.stat) {
+        b.atk += d.stat.atk || 0;
+        b.mp += d.stat.mp || 0;
+      }
+      if (d.flag) {
+        for (const k in d.flag) b.flag[k] = (b.flag[k] || 0) + d.flag[k];
+      }
+    }
     return b;
+  },
+
+  /** 当前激活的共鸣 tag 数组 (v2.4) */
+  activeResonances(p) {
+    if (!p || !p.boons) return [];
+    const counts = {};
+    for (const id in p.boons) {
+      const d = BOONS[id];
+      if (d && d.tag) counts[d.tag] = (counts[d.tag] || 0) + 1;
+    }
+    return Object.keys(counts).filter(t => counts[t] >= 3 && RESONANCES[t]);
+  },
+
+  /** 各 tag 已收集的祝福种数 (HUD 展示用) */
+  tagCounts(p) {
+    const counts = {};
+    if (p && p.boons) {
+      for (const id in p.boons) {
+        const d = BOONS[id];
+        if (d && d.tag) counts[d.tag] = (counts[d.tag] || 0) + 1;
+      }
+    }
+    return counts;
   },
 
   /** 祝福生效 */
@@ -2458,6 +2897,8 @@ const MapGen = (() => {
     const theme = L.theme;
     const tiles = rng.shuffled(spawnableTiles(L, 8));
     let n = theme.enemyN || 8;
+    // 新手节奏 (v2.4): 前 2 层减怪, 给教学留呼吸感
+    if (floor <= 2) n = Math.max(4, n - 3);
     for (let i = 0; i < n && tiles.length; i++) {
       const p = tiles.pop();
       const id = Enemies.pickForFloor(floor, rng);
@@ -2693,7 +3134,8 @@ const MapGen = (() => {
 
   function pickAmbushRooms(L, rng) {
     L.ambushRooms = [];
-    if (L.theme.boss) return;
+    // 新手节奏 (v2.4): 前 3 层不出现伏击房
+    if (L.theme.boss || L.floor <= 3) return;
     const bad = new Set([T.STAIRS, T.CHEST, T.FOUNTAIN, T.ALTAR, T.SHOPKEEP, T.ORACLE, T.CAPTIVE, T.STATUE]);
     const cands = L.rooms.filter(r => {
       const area = r.w * r.h;
@@ -4678,6 +5120,7 @@ const ACHIEVEMENTS = [
   { id: 'cursed_pact',  name: '敢于诅咒',     icon: '😈', desc: '接受一张诅咒祝福' },
   { id: 'elite_10',     name: '精英收割机',   icon: '👑', desc: '单局击败 10 只精英怪' },
   { id: 'echoes_full',  name: '记忆拼图',     icon: '🧩', desc: '收齐全部 15 枚记忆碎片' },
+  { id: 'resonance_first', name: '共鸣初醒',  icon: '🌟', desc: '第一次激活祝福共鸣' },
 ];
 
 const META_KEY = 'abyss_corridor_meta_v1';
@@ -4905,6 +5348,7 @@ const Render = (() => {
     ctx = cv.getContext('2d');
     cv.width = W * TS;
     cv.height = H * TS;
+    ctx.imageSmoothingEnabled = false;   // 像素精灵硬边 (v2.4)
     staticCv = document.createElement('canvas');
     staticCv.width = W * TS;
     staticCv.height = H * TS;
@@ -5388,26 +5832,30 @@ const Render = (() => {
           case T.ALTAR:
             drawEmoji('⚱️', px + TS / 2, py + TS / 2, now, 0.8);
             break;
-          case T.SHOPKEEP:
-            drawEmoji('🧞', px + TS / 2, py + TS / 2, now, 0.9);
+          case T.SHOPKEEP: {
+            const sprK = SpriteLib.get('npc_shopkeep');
+            if (sprK) ctx.drawImage(sprK, px + TS / 2 - sprK.width / 2, py + TS / 2 - sprK.height / 2 + 1);
+            else drawEmoji('🧞', px + TS / 2, py + TS / 2, now, 0.9);
             break;
+          }
           case T.ORACLE: {
             blitGlow(ctx, x, y, 1.0, '#b197fc', 0.26 + 0.08 * Math.sin(now / 350));
-            drawEmoji('🔮', px + TS / 2, py + TS / 2, now, 0.8, 'rgba(177,151,252,0.55)');
+            const sprO = SpriteLib.get('npc_oracle');
+            if (sprO) ctx.drawImage(sprO, px + TS / 2 - sprO.width / 2, py + TS / 2 - sprO.height / 2 + 1);
+            else drawEmoji('🔮', px + TS / 2, py + TS / 2, now, 0.8, 'rgba(177,151,252,0.55)');
             break;
           }
           case T.CAPTIVE: {
-            drawEmoji('🙍', px + TS / 2, py + TS / 2, now, 0.8);
-            ctx.save();
-            ctx.font = `${Math.round(TS * 0.34)}px ${EMOJI_FONT}`;
-            ctx.textAlign = 'center';
-            ctx.fillText('💧', px + TS * 0.74, py + TS * 0.28);
-            ctx.restore();
+            const sprC = SpriteLib.get('npc_captive');
+            if (sprC) ctx.drawImage(sprC, px + TS / 2 - sprC.width / 2, py + TS / 2 - sprC.height / 2 + 1);
+            else drawEmoji('🙍', px + TS / 2, py + TS / 2, now, 0.8);
             break;
           }
           case T.STATUE: {
             blitGlow(ctx, x, y, 0.9, '#9aa5b5', 0.15 + 0.06 * Math.sin(now / 500));
-            drawEmoji('🗿', px + TS / 2, py + TS / 2, now, 0.8);
+            const sprS = SpriteLib.get('npc_statue');
+            if (sprS) ctx.drawImage(sprS, px + TS / 2 - sprS.width / 2, py + TS / 2 - sprS.height / 2 + 1);
+            else drawEmoji('🗿', px + TS / 2, py + TS / 2, now, 0.8);
             break;
           }
           case T.TORCH: {
@@ -5566,14 +6014,21 @@ const Render = (() => {
 
     // 战斗状态: 环色随敌情变化 (蓝=安全, 红=被怪盯上)
     const inCombat = game.enemiesVisible && game.enemiesVisible().some(e => e.awake && e.hp > 0);
-    // 职业形象 (v2.3): 战士🤺 / 游侠🧝 / 法师🧙
-    const cls = p.cls && CONFIG.CLASSES ? CONFIG.CLASSES.find(c => c.id === p.cls) : null;
-    const pGlyph = cls ? cls.glyph : '🧙';
-    // 受击闪白 (v2.3)
+    // 像素精灵形象 (v2.4): 战士/游侠/法师; 受击闪白用 brightness 滤镜
+    const clsId = p.cls || 'mage';
+    const spr = SpriteLib.get('player_' + clsId);
     const flashed = p.flash && (now - p.flash) < 130;
     if (flashed) blitGlow(ctx, p.x + ox, p.y + oy, 0.8, '#ffffff', 0.55);
-    drawEmoji(pGlyph, px, py, now, flashed ? 1.12 : 1.06,
-      flashed ? 'rgba(255,255,255,0.95)' : (inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)'));
+    if (spr) {
+      ctx.save();
+      if (flashed) ctx.filter = 'brightness(2.4) saturate(0.2)';
+      ctx.drawImage(spr, px - spr.width / 2, py - spr.height / 2 + 1);
+      ctx.restore();
+    } else {
+      const cls = p.cls && CONFIG.CLASSES ? CONFIG.CLASSES.find(c => c.id === p.cls) : null;
+      drawEmoji(cls ? cls.glyph : '🧙', px, py, now, 1.06,
+        flashed ? 'rgba(255,255,255,0.95)' : (inCombat ? 'rgba(255,120,90,0.7)' : 'rgba(150,190,255,0.7)'));
+    }
     ctx.save();
     ctx.strokeStyle = inCombat ? 'rgba(255,110,90,0.7)' : 'rgba(165,200,255,0.65)';
     ctx.lineWidth = 1.6;
@@ -5611,11 +6066,23 @@ const Render = (() => {
       ctx.ellipse(px, py + TS * 0.32, TS * (e.boss ? 0.4 : 0.28), TS * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    // 受击闪白 (v2.3): 白色光晕 + 放大 + 白描边, 130ms
+    // 受击闪白 (v2.3): 白色光晕 + brightness 滤镜, 130ms; 像素精灵 (v2.4)
     const flashed = isVis && e.flash && (now - e.flash) < 130;
     if (flashed) blitGlow(ctx, e.x + ox, e.y + oy, 0.85, '#ffffff', 0.6);
-    drawEmoji(e.glyph, px, py, now, flashed ? (e.boss ? 1.3 : 1.08) : (e.boss ? 1.2 : 0.98),
-      flashed ? 'rgba(255,255,255,0.95)' : (isVis && e.boss ? 'rgba(255,90,60,0.8)' : null));
+    const spr = SpriteLib.get(e.id);
+    if (spr) {
+      ctx.save();
+      if (flashed) ctx.filter = 'brightness(2.6) saturate(0.2)';
+      const scale = e.boss ? 1.22 : 1;
+      const dw = spr.width * scale, dh = spr.height * scale;
+      const bob = Math.sin(now / 380 + px * 0.13) * 1.2;
+      if (!isVis) ctx.globalAlpha = 0.45;
+      ctx.drawImage(spr, px - dw / 2, py - dh / 2 + bob);
+      ctx.restore();
+    } else {
+      drawEmoji(e.glyph, px, py, now, flashed ? (e.boss ? 1.3 : 1.08) : (e.boss ? 1.2 : 0.98),
+        flashed ? 'rgba(255,255,255,0.95)' : (isVis && e.boss ? 'rgba(255,90,60,0.8)' : null));
+    }
 
     if (Status.has(e, 'frozen')) {
       ctx.globalAlpha = 0.5;
@@ -6056,11 +6523,24 @@ const HUD = (() => {
 
     if (els.boons) {
       const boons = p.boons || {};
-      els.boons.innerHTML = Object.keys(boons).map(id => {
+      let chips = Object.keys(boons).map(id => {
         const d = Boons.def(id);
         if (!d) return '';
         return `<span class="boon-chip" title="${d.desc}">${d.icon}${d.name}${boons[id] > 1 ? '×' + boons[id] : ''}</span>`;
-      }).join('');
+      });
+      // 共鸣进度芯片 (v2.4): 激活的亮金, 未满的暗色显示进度
+      const counts = Boons.tagCounts(p);
+      const active = Boons.activeResonances(p);
+      for (const tag of Object.keys(RESONANCES)) {
+        const r = RESONANCES[tag];
+        const n = counts[tag] || 0;
+        if (active.includes(tag)) {
+          chips.push(`<span class="boon-chip res-on" title="${r.desc}">${r.icon}${r.name}</span>`);
+        } else if (n >= 1) {
+          chips.push(`<span class="boon-chip res-dim" title="再集 ${3 - n} 种${RESONANCE_TAG_NAMES[tag]}系祝福即可共鸣: ${r.desc}">${RESONANCE_TAG_NAMES[tag]}系 ${n}/3</span>`);
+        }
+      }
+      els.boons.innerHTML = chips.join('');
     }
 
     // 挑战因子 / 每日挑战
@@ -6971,7 +7451,7 @@ const Game = {
     p.eva = 5 + (p.clsEva || 0) + b.eva + bb.eva;
     p.crit = 5 + (p.clsCrit || 0) + b.crit + bb.crit;
     p.maxHp = Math.max(10, Math.round((p.baseMaxHp + bb.hp) * (1 + (bb.flag.hpPct || 0))));
-    p.maxMp = p.baseMaxMp + b.mp;
+    p.maxMp = p.baseMaxMp + b.mp + (bb.mp || 0);
     p.flags = Object.assign({}, b.flag, bb.flag);
     // 双持成就
     if (p.equip.weapon && p.equip.weapon2) Meta.unlock('dual_wield');
@@ -7021,6 +7501,12 @@ const Game = {
     FOV.compute(this.level, p.x, p.y, r);
     // 铁壁祝福: 每层护盾
     if (p.flags && p.flags.floorShield) Status.add(p, 'shield', 99, p.flags.floorShield);
+    // 生机共鸣 (v2.4): 每层开始回血
+    if (p.flags && p.flags.floorHeal && p.hp < p.maxHp) {
+      p.heal(p.flags.floorHeal, true);
+      FX.ring(p.x, p.y, '#8fce6a');
+      this.msg('🌿 生机共鸣: 大地的脉动治愈了你 (+' + p.flags.floorHeal + ')', 'good');
+    }
     // 恶魔契约诅咒: 每层开始中毒
     if (p.flags && p.flags.poisonPerFloor) {
       Status.add(p, 'poison', 3, 2);
@@ -7075,11 +7561,22 @@ const Game = {
     if (!this.boonChoices) return;
     const id = this.boonChoices[idx];
     if (!id) return;
+    const resBefore = Boons.activeResonances(this.player);
     Boons.give(this.player, id);
     const d = Boons.def(id);
     const n = this.player.boons[id];
     if (d.cursed) Meta.unlock('cursed_pact');
     this.msg(`${d.cursed ? '😈 恶魔低语: ' : '✨ 获得祝福: '}${d.icon} <b>${d.name}</b>${n > 1 ? ' ×' + n : ''} — ${d.desc}`, d.cursed ? 'warn' : 'magic');
+    // 共鸣激活播报 (v2.4)
+    const resAfter = Boons.activeResonances(this.player);
+    const newly = resAfter.find(t => !resBefore.includes(t));
+    if (newly) {
+      const r = RESONANCES[newly];
+      this.msg(`🌟 <b>${r.icon} ${r.name} 激活!</b> ${r.desc}`, 'magic');
+      FX.nova(this.player.x, this.player.y, '#ffd43b', 2.2);
+      AudioSys.play('victory');
+      Meta.unlock('resonance_first');
+    }
     AudioSys.play('levelup');
     this.recalcStats();
     this.boonChoices = null;

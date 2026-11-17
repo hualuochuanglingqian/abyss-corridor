@@ -12,6 +12,7 @@ const FILES = [
   'js/core/util.js',
   'js/data/config.js',
   'js/data/tiles.js',
+  'js/data/sprites.js',
   'js/data/affixes.js',
   'js/data/items.js',
   'js/data/enemies.js',

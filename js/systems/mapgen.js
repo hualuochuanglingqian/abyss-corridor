@@ -389,6 +389,8 @@ const MapGen = (() => {
     const theme = L.theme;
     const tiles = rng.shuffled(spawnableTiles(L, 8));
     let n = theme.enemyN || 8;
+    // 新手节奏 (v2.4): 前 2 层减怪, 给教学留呼吸感
+    if (floor <= 2) n = Math.max(4, n - 3);
     for (let i = 0; i < n && tiles.length; i++) {
       const p = tiles.pop();
       const id = Enemies.pickForFloor(floor, rng);
@@ -624,7 +626,8 @@ const MapGen = (() => {
 
   function pickAmbushRooms(L, rng) {
     L.ambushRooms = [];
-    if (L.theme.boss) return;
+    // 新手节奏 (v2.4): 前 3 层不出现伏击房
+    if (L.theme.boss || L.floor <= 3) return;
     const bad = new Set([T.STAIRS, T.CHEST, T.FOUNTAIN, T.ALTAR, T.SHOPKEEP, T.ORACLE, T.CAPTIVE, T.STATUE]);
     const cands = L.rooms.filter(r => {
       const area = r.w * r.h;

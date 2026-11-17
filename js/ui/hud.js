@@ -112,11 +112,24 @@ const HUD = (() => {
 
     if (els.boons) {
       const boons = p.boons || {};
-      els.boons.innerHTML = Object.keys(boons).map(id => {
+      let chips = Object.keys(boons).map(id => {
         const d = Boons.def(id);
         if (!d) return '';
         return `<span class="boon-chip" title="${d.desc}">${d.icon}${d.name}${boons[id] > 1 ? '×' + boons[id] : ''}</span>`;
-      }).join('');
+      });
+      // 共鸣进度芯片 (v2.4): 激活的亮金, 未满的暗色显示进度
+      const counts = Boons.tagCounts(p);
+      const active = Boons.activeResonances(p);
+      for (const tag of Object.keys(RESONANCES)) {
+        const r = RESONANCES[tag];
+        const n = counts[tag] || 0;
+        if (active.includes(tag)) {
+          chips.push(`<span class="boon-chip res-on" title="${r.desc}">${r.icon}${r.name}</span>`);
+        } else if (n >= 1) {
+          chips.push(`<span class="boon-chip res-dim" title="再集 ${3 - n} 种${RESONANCE_TAG_NAMES[tag]}系祝福即可共鸣: ${r.desc}">${RESONANCE_TAG_NAMES[tag]}系 ${n}/3</span>`);
+        }
+      }
+      els.boons.innerHTML = chips.join('');
     }
 
     // 挑战因子 / 每日挑战

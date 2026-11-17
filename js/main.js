@@ -291,7 +291,7 @@ const Game = {
     p.eva = 5 + (p.clsEva || 0) + b.eva + bb.eva;
     p.crit = 5 + (p.clsCrit || 0) + b.crit + bb.crit;
     p.maxHp = Math.max(10, Math.round((p.baseMaxHp + bb.hp) * (1 + (bb.flag.hpPct || 0))));
-    p.maxMp = p.baseMaxMp + b.mp;
+    p.maxMp = p.baseMaxMp + b.mp + (bb.mp || 0);
     p.flags = Object.assign({}, b.flag, bb.flag);
     // 双持成就
     if (p.equip.weapon && p.equip.weapon2) Meta.unlock('dual_wield');
@@ -341,6 +341,12 @@ const Game = {
     FOV.compute(this.level, p.x, p.y, r);
     // 铁壁祝福: 每层护盾
     if (p.flags && p.flags.floorShield) Status.add(p, 'shield', 99, p.flags.floorShield);
+    // 生机共鸣 (v2.4): 每层开始回血
+    if (p.flags && p.flags.floorHeal && p.hp < p.maxHp) {
+      p.heal(p.flags.floorHeal, true);
+      FX.ring(p.x, p.y, '#8fce6a');
+      this.msg('🌿 生机共鸣: 大地的脉动治愈了你 (+' + p.flags.floorHeal + ')', 'good');
+    }
     // 恶魔契约诅咒: 每层开始中毒
     if (p.flags && p.flags.poisonPerFloor) {
       Status.add(p, 'poison', 3, 2);
@@ -395,11 +401,22 @@ const Game = {
     if (!this.boonChoices) return;
     const id = this.boonChoices[idx];
     if (!id) return;
+    const resBefore = Boons.activeResonances(this.player);
     Boons.give(this.player, id);
     const d = Boons.def(id);
     const n = this.player.boons[id];
     if (d.cursed) Meta.unlock('cursed_pact');
     this.msg(`${d.cursed ? '😈 恶魔低语: ' : '✨ 获得祝福: '}${d.icon} <b>${d.name}</b>${n > 1 ? ' ×' + n : ''} — ${d.desc}`, d.cursed ? 'warn' : 'magic');
+    // 共鸣激活播报 (v2.4)
+    const resAfter = Boons.activeResonances(this.player);
+    const newly = resAfter.find(t => !resBefore.includes(t));
+    if (newly) {
+      const r = RESONANCES[newly];
+      this.msg(`🌟 <b>${r.icon} ${r.name} 激活!</b> ${r.desc}`, 'magic');
+      FX.nova(this.player.x, this.player.y, '#ffd43b', 2.2);
+      AudioSys.play('victory');
+      Meta.unlock('resonance_first');
+    }
     AudioSys.play('levelup');
     this.recalcStats();
     this.boonChoices = null;
