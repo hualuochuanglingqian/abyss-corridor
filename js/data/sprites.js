@@ -332,6 +332,19 @@ const SPRITES = {
       '........',
     ],
   },
+  npc_forge: {
+    pal: { y: '#ff9538', w: '#8a9aa8', d: '#4a5560', s: '#5a3a1a' },
+    map: [
+      '..oooo..',
+      '.owwwwo.',
+      '.owddwo.',
+      '.owyywo.',
+      '.oddddo.',
+      'osssssso',
+      'os....so',
+      '........',
+    ],
+  },
   npc_shopkeep: {
     pal: { y: '#d9ab4a', b: '#6a4a2a' },
     map: [

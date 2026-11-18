@@ -119,6 +119,7 @@ const Game = {
     this.rng = new RNG(seed);
     this.challenge = challenge || null;
     this.daily = !!opts.daily;
+    this.ascension = Math.max(0, Math.min(CONFIG.ASCENSION.length, opts.asc || 0));
     this.floor = 1;
     this.turn = 0;
     this.endless = false;
@@ -161,6 +162,27 @@ const Game = {
     return CONFIG.CLASSES.find(c => c.id === this.player.cls) || null;
   },
 
+  /** 当前深渊契约的合并修饰 (v2.5) */
+  ascMods() {
+    const m = { hpMul: 1, atkMul: 1, eliteMul: 1, bossHpMul: 1, fog: 0, priceMul: 1, goldMul: 1, extraEnemies: 0, boonCount: 0, floorHpLoss: 0, goldStart: 1 };
+    const n = this.ascension || 0;
+    for (let i = 0; i < n && i < CONFIG.ASCENSION.length; i++) {
+      const a = CONFIG.ASCENSION[i];
+      if (a.hpMul) m.hpMul *= 1 + a.hpMul;
+      if (a.atkMul) m.atkMul *= 1 + a.atkMul;
+      if (a.bossHpMul) m.bossHpMul *= 1 + a.bossHpMul;
+      if (a.eliteMul) m.eliteMul *= a.eliteMul;
+      if (a.fog) m.fog += a.fog;
+      if (a.priceMul) m.priceMul *= a.priceMul;
+      if (a.goldMul) m.goldMul *= a.goldMul;
+      if (a.extraEnemies) m.extraEnemies += a.extraEnemies;
+      if (a.boonCount) m.boonCount += a.boonCount;
+      if (a.floorHpLoss) m.floorHpLoss += a.floorHpLoss;
+      if (a.goldStart) m.goldStart *= a.goldStart;
+    }
+    return m;
+  },
+
   makePlayer(clsId) {
     const cls = CONFIG.CLASSES.find(c => c.id === clsId) || null;
     const p = {
@@ -174,7 +196,7 @@ const Game = {
       hp: 0, mp: 0,
       maxHp: CONFIG.PLAYER.HP, maxMp: CONFIG.PLAYER.MP,
       atk: CONFIG.PLAYER.ATK, def: 0, acc: 85, eva: 5, crit: 5,
-      level: 1, xp: 0, gold: 10,
+      level: 1, xp: 0, gold: Math.max(5, Math.round(10 * this.ascMods().goldStart)),
       inv: [Items.mk('p_hp_s', 3), Items.mk('p_mp', 1)],
       equip: {
         weapon: cls ? Items.mk(cls.weapon) : null,
@@ -231,6 +253,7 @@ const Game = {
     this.seed = d.seed;
     this.rng = new RNG(d.seed);
     this.challenge = d.challenge || null;
+    this.ascension = d.ascension || 0;
     this.daily = !!d.daily;
     this.floor = d.floor;
     this.turn = d.turn;
@@ -309,17 +332,28 @@ const Game = {
       if (p.boons) base += (Boons.bonus(p).flag.farSight || 0);
     }
     if (this.challenge && this.challenge.fog) base += this.challenge.fog;
+    // 深渊契约·盲 (v2.5)
+    if (this.ascension > 0) base += this.ascMods().fog;
     return Math.max(3, Math.round(base));
   },
 
   // ---------------- 楼层 ----------------
   enterFloor(floor, isFresh) {
     this.floor = floor;
-    const chal = this.challenge ? {
-      hpMul: this.challenge.hpMul, atkMul: this.challenge.atkMul,
-      defAdd: this.challenge.defAdd, rewardMul: this.challenge.rewardMul,
-    } : null;
-    this.level = MapGen.generate(this.seed, floor, { chal });
+    const asc = this.ascMods();
+    const chal = {
+      hpMul: (this.challenge ? this.challenge.hpMul : 1) * asc.hpMul,
+      atkMul: (this.challenge ? this.challenge.atkMul : 1) * asc.atkMul,
+      defAdd: this.challenge ? this.challenge.defAdd : 0,
+      rewardMul: this.challenge ? this.challenge.rewardMul : 1,
+      eliteMul: asc.eliteMul,
+      bossHpMul: asc.bossHpMul,
+      extraEnemies: asc.extraEnemies,
+      priceMul: asc.priceMul,
+      goldMul: asc.goldMul,
+    };
+    const hasChal = this.challenge || this.ascension > 0;
+    this.level = MapGen.generate(this.seed, floor, { chal, asc });
     const p = this.player;
     p.x = this.level.spawn.x;
     p.y = this.level.spawn.y;
@@ -351,6 +385,12 @@ const Game = {
     if (p.flags && p.flags.poisonPerFloor) {
       Status.add(p, 'poison', 3, 2);
       this.msg('😈 恶魔契约生效 — 毒素在血液里苏醒…', 'warn');
+    }
+    // 深渊契约·饥 (v2.5): 每层开始失去 % 最大生命
+    if (asc.floorHpLoss && !isFresh) {
+      const loss = Math.max(1, Math.round(p.maxHp * asc.floorHpLoss));
+      p.hp = Math.max(1, p.hp - loss);
+      this.msg(`🩸 饥之契约: 深渊啜饮了你的血 (-${loss})`, 'warn');
     }
     // 探图者天赋
     if (Meta.data.talents && Meta.data.talents.t_map) this.revealPartial(0.3);
@@ -388,7 +428,9 @@ const Game = {
   // ---------------- 祝福三选一 ----------------
   offerBoons() {
     if (this.state !== 'play') return;
-    this.boonChoices = Boons.sample(this.rng, 3);
+    const asc = this.ascMods();
+    const n = Math.max(2, 3 + asc.boonCount);   // 深渊契约可减到二选一
+    this.boonChoices = Boons.sample(this.rng, n);
     // 首次见到诅咒卡: 讲清楚规则
     if (this.boonChoices.some(id => Boons.def(id) && Boons.def(id).cursed)) {
       Meta.tipOnce('curse', '😈 红边卡是「诅咒祝福」: 收益更强但附带代价 — 敢要的人走得远');
@@ -891,7 +933,7 @@ const Game = {
 
     // 相邻交互
     const near = this.adjacentTiles();
-    let chest = null, altar = null, fountain = null, stairs = null, shopkeep = null;
+    let chest = null, altar = null, fountain = null, stairs = null, shopkeep = null, forge = null;
     for (const n of near) {
       const t = L.tile(n.x, n.y);
       if (t === T.CHEST && !chest) chest = n;
@@ -899,9 +941,11 @@ const Game = {
       else if (t === T.FOUNTAIN && !fountain) fountain = n;
       else if (t === T.STAIRS && !stairs) stairs = n;
       else if (t === T.SHOPKEEP && !shopkeep) shopkeep = n;
+      else if (t === T.FORGE && !forge) forge = n;
     }
     if (chest) { this.openChest(chest); return; }
     if (altar) { this.useAltar(altar); return; }
+    if (forge) { this.useForge(forge); return; }
     if (fountain) {
       // 相邻泉水: 先走上去
       this.move(Math.sign(fountain.x - p.x), Math.sign(fountain.y - p.y));
@@ -997,6 +1041,43 @@ const Game = {
     this.recalcStats();
     Meta.unlock('skill_first');
     HUD.update(this);
+  },
+
+  /**
+   * 铁匠重铸台 (v2.5): 花金币重掷主手武器的词条 — 金币的第三个沉没点。
+   * 费用随层数增长, 每台限 2 次; 已有 2 条词条时重掷, 只有 1 条时补一条。
+   */
+  useForge(at) {
+    const L = this.level, p = this.player;
+    if ((L.forgeUsed || 0) >= 2) { this.msg('🛠 铁匠收摊了 ("今天打得够多了")。', 'sys'); return; }
+    const w = p.equip.weapon;
+    if (!w) { this.msg('🛠 铁匠: 「空手来的? 先弄把家伙。」', 'warn'); return; }
+    if (!w.affixes) w.affixes = [];
+    const COST = 45 + this.floor * 12;
+    const isMax = w.affixes.length >= 2;
+    if (p.gold < COST) {
+      this.msg(`🛠 重铸需要 ${COST} 金币。你只有 ${p.gold}。`, 'warn');
+      HUD.toast('💰 金币不足');
+      AudioSys.play('error');
+      return;
+    }
+    p.gold -= COST;
+    L.forgeUsed = (L.forgeUsed || 0) + 1;
+    const kind = ITEMS[w.id].kind;
+    if (isMax) {
+      w.affixes = Affixes.gen(this.rng, this.floor, kind, { max: 2 });
+      this.msg(`🛠 铁匠叮叮当当一阵敲打 — <b>${Affixes.displayName(w)}</b> (词条已重铸, 花费 ${COST})`, 'item');
+    } else {
+      const extra = Affixes.gen(this.rng, this.floor, kind, { max: 1 });
+      if (extra.length && !w.affixes.includes(extra[0])) w.affixes.push(extra[0]);
+      this.msg(`🛠 铁匠补了一刀 — <b>${Affixes.displayName(w)}</b> (新增词条, 花费 ${COST})`, 'item');
+    }
+    this.recalcStats();
+    FX.ring(at.x, at.y, '#ffb35a');
+    FX.burst(at.x, at.y, '#ffd43b', 12);
+    AudioSys.play('chest');
+    HUD.refreshInv(this);
+    this.afterAction();
   },
 
   buy(it) {
@@ -1172,6 +1253,13 @@ const Game = {
       if (p.flags.manaFlow && this.turn % 2 === 0 && p.mp < p.maxMp) p.gainMp(1);
     }
 
+    // 战术姿态结算 (v2.5): 本回合防守结束 → 转入蓄力 (下次攻击增伤); 未受伤也算
+    if (p.guarding) {
+      p.guarding = false;
+      p.guardCharge = true;
+      FX.float(p.x, p.y - 0.7, '蓄力 ↑', '#ffd43b');
+    }
+
     this.finishTurn();
   },
 
@@ -1212,6 +1300,20 @@ const Game = {
 
   waitTurn() {
     if (!this.canAct()) return;
+    this.afterAction();
+  },
+
+  /** 战术姿态 (v2.5): 防守一回合 — 减伤 55%, 下次攻击蓄力 +60% */
+  guard() {
+    if (!this.canAct()) return;
+    if (this.auto) this.stopAuto(true);
+    const p = this.player;
+    if (p.guarding) { HUD.toast('🛡 已经在防守姿态中'); return; }
+    p.guarding = true;
+    p.guardCharge = false;
+    FX.ring(p.x, p.y, '#8fc9ff');
+    this.msg('🛡 你收招防守 — 本回合减伤 55%, 下次攻击蓄力 +60%。', 'sys');
+    AudioSys.play('ui');
     this.afterAction();
   },
 
@@ -1395,7 +1497,8 @@ const Game = {
 
   gainGold(n) {
     const f = this.player.flags || {};
-    const mult = (f.greed || 1) * (f.goldMul || 1) * ((this.challenge && this.challenge.goldMul) || 1);
+    const asc = this.ascMods();
+    const mult = (f.greed || 1) * (f.goldMul || 1) * ((this.challenge && this.challenge.goldMul) || 1) * asc.goldMul;
     n = Math.round(n * mult);
     this.player.gold += n;
     this.stats.goldGained += n;
@@ -1682,6 +1785,7 @@ const Game = {
         return;
       }
       if (k === ' ' || k === '.') { e.preventDefault(); this.stopAuto(true); this.waitTurn(); return; }
+      if (k === 'e' || k === 'E') { e.preventDefault(); this.guard(); return; }
       if (k === 'Enter' || k === 'g' || k === 'G') { e.preventDefault(); this.interact(); return; }
       if (k === 'q' || k === 'Q') { e.preventDefault(); this.quickPotion(); return; }
       if (k === 'r' || k === 'R') { e.preventDefault(); this.startRest(); return; }

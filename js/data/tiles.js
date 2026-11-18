@@ -23,6 +23,7 @@ const T = {
   ORACLE: 15,     // 预言者 (交互: 对话+一次性祝福)
   CAPTIVE: 16,    // 被困的旅者 (交互: 对话+救援奖励)
   STATUE: 17,     // 神秘石像 (交互: 祈愿, 结果随机)
+  FORGE: 18,      // 铁匠重铸台 (交互: 花金币重掷装备词条) v2.5
 };
 
 const TILE_DEFS = {
@@ -44,6 +45,7 @@ const TILE_DEFS = {
   [T.ORACLE]:   { name: '预言者', blocksMove: true,  blocksSight: false, interact: 'oracle' },
   [T.CAPTIVE]:  { name: '被困的旅者', blocksMove: true,  blocksSight: false, interact: 'captive' },
   [T.STATUE]:   { name: '神秘石像', blocksMove: true,  blocksSight: false, interact: 'statue' },
+  [T.FORGE]:    { name: '铁匠重铸台', blocksMove: true,  blocksSight: false, interact: 'forge' },
 };
 
 const Tiles = {

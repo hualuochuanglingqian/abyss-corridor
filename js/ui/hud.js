@@ -136,6 +136,7 @@ const HUD = (() => {
     if (els.chal) {
       const parts = [];
       if (game.challenge) parts.push(`${game.challenge.icon} ${game.challenge.name}`);
+      if (game.ascension > 0) parts.push(`🩸 契约 ${game.ascension} 阶`);
       if (game.daily) parts.push('📅 每日挑战');
       if (parts.length) {
         els.chal.textContent = parts.join(' · ');

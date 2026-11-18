@@ -363,6 +363,19 @@ body {
 .boon-chip.res-on { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 6px rgba(217,171,74,.35) inset; }
 .boon-chip.res-dim { opacity: .72; border-style: dashed; }
 
+/* 深渊契约列表 (v2.5) */
+.asc-list { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto; margin-bottom: 10px; }
+.asc-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border: 2px solid var(--border); background: var(--panel2);
+}
+.asc-row.locked { opacity: .45; }
+.asc-lv { color: #ff7b72; font-size: 12px; min-width: 62px; }
+.asc-info { flex: 1; min-width: 0; }
+.asc-name { color: var(--gold); font-size: 12px; margin-bottom: 3px; }
+.asc-desc { color: var(--text); font-size: 12px; line-height: 1.6; }
+.asc-go { min-width: 88px; text-align: center; }
+
 /* ---- 职业选择 / 死亡建议 / 回响图鉴 (v2.3) ---- */
 .class-card { min-width: 220px; max-width: 250px; cursor: pointer; }
 .class-card .bc-key { color: var(--gold-dim); }

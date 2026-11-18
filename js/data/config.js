@@ -3,7 +3,7 @@
 'use strict';
 
 const CONFIG = {
-  VERSION: '2.4.0',       // 与 CHANGELOG.md 同步, 标题画面显示
+  VERSION: '2.5.0',       // 与 CHANGELOG.md 同步, 标题画面显示
   TILE: 24,               // 图块像素
   MAP_W: 48,              // 地图宽 (格)
   MAP_H: 30,              // 地图高 (格)
@@ -71,6 +71,23 @@ const CONFIG = {
       id: 'blink', name: '传送术', glyph: '🌀', lv: 8, mp: 16,
       desc: '瞬移到视线下随机安全位置',
     },
+  ],
+
+  // 战术姿态 (v2.5): E 键防守 — 减伤 + 蓄力反击
+  GUARD: { dmgMul: 0.45, chargeMul: 1.6 },
+
+  // 深渊契约 (v2.5): 通关后逐阶解锁, 每阶叠加一条难度修饰 (借鉴 StS Ascension)
+  ASCENSION: [
+    { name: '血之契约', desc: '敌人生命 +15%', hpMul: 0.15 },
+    { name: '牙之契约', desc: '敌人攻击 +12%', atkMul: 0.12 },
+    { name: '贫之契约', desc: '商店价格 +35%, 开局金币减半', priceMul: 1.35, goldStart: 0.5 },
+    { name: '饥之契约', desc: '每层开始失去 5% 最大生命', floorHpLoss: 0.05 },
+    { name: '影之契约', desc: '精英出现率翻倍', eliteMul: 2 },
+    { name: '盲之契约', desc: '视野 -2', fog: -2 },
+    { name: '贫瘠之契约', desc: '本层掉落金币减半', goldMul: 0.5 },
+    { name: '群之契约', desc: '敌人数量 +3', extraEnemies: 3 },
+    { name: '枷之契约', desc: '每层祝福少一张 (三选一变二选一)', boonCount: -1 },
+    { name: '终之契约', desc: 'Boss 生命 +35%', bossHpMul: 0.35 },
   ],
 
   // 挑战因子 (开局可选, 参考元气骑士挑战因子的设计)

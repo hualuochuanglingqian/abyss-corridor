@@ -20,6 +20,8 @@ const Screens = (() => {
     $('btn-title-codex').addEventListener('click', () => { AudioSys.play('ui'); openCodex('bestiary', 'title'); });
     $('btn-title-talents').addEventListener('click', () => { AudioSys.play('ui'); openTalents(); });
     $('btn-title-challenge').addEventListener('click', () => { AudioSys.play('ui'); openChallenge(); });
+    $('btn-title-ascension').addEventListener('click', () => { AudioSys.play('ui'); openAscension(); });
+    $('btn-asc-none').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => { hideAll(); game.newRun(null, { cls, asc: 0 }); }); });
     $('btn-title-daily').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => { hideAll(); game.startDaily(cls); }); });
     $('btn-talents-close').addEventListener('click', () => { AudioSys.play('ui'); hide('overlay-talents'); game.paused = true; });
     $('btn-challenge-none').addEventListener('click', () => { AudioSys.play('ui'); pickClass(cls => { hideAll(); game.newRun(null, { cls }); }); });
@@ -378,6 +380,35 @@ const Screens = (() => {
     game.paused = true;
   }
 
+  // ---------- 深渊契约 (v2.5) ----------
+  function openAscension() {
+    const unlocked = Math.min(CONFIG.ASCENSION.length, Meta.data.records.ascUnlocked || 0);
+    const box = Util.el('asc-list');
+    box.innerHTML = CONFIG.ASCENSION.map((a, i) => {
+      const lv = i + 1;
+      const locked = lv > unlocked;
+      const stack = CONFIG.ASCENSION.slice(0, lv).map(x => x.name).join(' + ');
+      return `<div class="asc-row ${locked ? 'locked' : ''}">
+        <div class="asc-lv">${locked ? '🔒' : '🩸'} 第 ${lv} 阶</div>
+        <div class="asc-info">
+          <div class="asc-name">${a.name}${locked ? ' (未解锁)' : ''}</div>
+          <div class="asc-desc">${a.desc}${lv > 1 ? `<br><span class="dim">叠加: ${stack}</span>` : ''}</div>
+        </div>
+        ${locked
+          ? '<div class="asc-go dim">通关解锁</div>'
+          : `<button class="mbtn small asc-go" data-asc="${lv}">签订</button>`}
+      </div>`;
+    }).join('');
+    box.querySelectorAll('.asc-go[data-asc]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const asc = parseInt(btn.dataset.asc, 10);
+        pickClass(cls => { hideAll(); game.newRun(null, { cls, asc }); });
+      });
+    });
+    show('overlay-ascension');
+    game.paused = true;
+  }
+
   // ---------- 职业选择 (v2.3) ----------
   let classCb = null;
   function pickClass(cb) {
@@ -470,7 +501,7 @@ const Screens = (() => {
   return {
     init, show, hide, hideAll, title, death, win, toast,
     openHelp, openCodex, openMenu, closeMenu, closeHelp, closeCodex, refreshRecord,
-    showBoonChoices, hideBoonChoices, openTalents, openChallenge,
+    showBoonChoices, hideBoonChoices, openTalents, openChallenge, openAscension,
     showDialogue, pickClass,
     get pausedByOverlay() { return !!document.querySelector('.overlay.visible'); },
   };

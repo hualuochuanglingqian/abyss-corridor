@@ -107,6 +107,7 @@ window.addEventListener('unhandledrejection', function (e) {
       <button id="btn-new-run" class="mbtn primary">⚔ 新的冒险</button>
       <button id="btn-continue" class="mbtn">▶ 继续上次 (如存档)</button>
       <button id="btn-title-challenge" class="mbtn">🎯 挑战模式</button>
+      <button id="btn-title-ascension" class="mbtn">🩸 深渊契约</button>
       <button id="btn-title-daily" class="mbtn">☀️ 每日挑战</button>
       <button id="btn-title-talents" class="mbtn">💎 天赋 · 魂晶</button>
       <button id="btn-title-help" class="mbtn">? 玩法说明</button>
@@ -155,6 +156,7 @@ window.addEventListener('unhandledrejection', function (e) {
           <tr><td>↑↓←→ / WASD / 小键盘</td><td>移动 · 撞击敌人=攻击</td></tr>
           <tr><td>Enter / G</td><td>下楼 · 交互 · 购买</td></tr>
           <tr><td>空格 或 .</td><td>原地等待一回合</td></tr>
+          <tr><td>E</td><td>🛡 战术防守 (减伤 55%, 下次攻击 +60%)</td></tr>
           <tr><td>A</td><td>左移 (WASD) — 自动探索请按 <b>F</b></td></tr>
           <tr><td>F</td><td>自动探索(遇敌中止)</td></tr>
           <tr><td>R</td><td>原地休息到满血</td></tr>
@@ -184,6 +186,9 @@ window.addEventListener('unhandledrejection', function (e) {
           <li>📜 每层藏着一枚泛紫光的<b>记忆碎片</b>(掘金队日记), 集齐 15 枚在图鉴「回响」拼出完整故事。</li>
           <li>🪓 「处决者」祝福专收残血; 😈 「无底之胃」金币+60% 但药水减半 — 诅咒不全是坏事。</li>
           <li>🌟 <b>祝福共鸣</b>: 集齐 3 种同系(⚔️战/🔮奥/🌿生)祝福自动激活共鸣 — 想好流派再选。</li>
+          <li>🛡 <b>按 E 防守</b>: 减伤 55% 且下次攻击 +60% — 硬仗里先守一拍再反击, 比无脑对撞省血。</li>
+          <li>🛠 <b>铁匠重铸台</b>: 花金币重铸主手武器词条 (每台 2 次) — 金币的第三个去处。</li>
+          <li>🩸 <b>深渊契约</b>: 通关后解锁, 最高 10 阶叠加难度 — 给老玩家的长期目标。</li>
           <li>💎 死亡/通关结算<b>魂晶</b>, 回主菜单可在「天赋」中永久变强。</li>
           <li>🎯 挑战因子 (疯狂/浓雾/坚壁) 更难, 魂晶收益 ×1.5。</li>
         </ul>
@@ -230,6 +235,19 @@ window.addEventListener('unhandledrejection', function (e) {
     <div class="panel-hint" style="margin-bottom:12px">选择一个挑战因子开启新的一局 — 更难, 但魂晶收益 ×1.5</div>
     <div id="challenge-cards" class="challenge-cards"></div>
     <div class="menu-btns"><button id="btn-challenge-none" class="mbtn">不用了, 普通开局</button></div>
+  </div>
+</div>
+
+<div id="overlay-ascension" class="overlay">
+  <div class="ov-box">
+    <div class="ov-title">🩸 深渊契约</div>
+    <div class="panel-hint" style="margin-bottom:10px">
+      契约逐阶叠加 — 选择第 N 阶意味着同时承受前 N-1 阶的全部代价。通关一次额外解锁一阶。
+    </div>
+    <div id="asc-list" class="asc-list"></div>
+    <div class="menu-btns">
+      <button id="btn-asc-none" class="mbtn">不签契约 (普通难度)</button>
+    </div>
   </div>
 </div>
 

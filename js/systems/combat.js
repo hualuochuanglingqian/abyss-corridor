@@ -30,6 +30,12 @@ const Combat = (() => {
     const f = p.flags || {};
 
     let dmg = playerAtkVal(game) * (mult || 1) * (1 + rng.float(-CONFIG.DMG_VARIANCE, CONFIG.DMG_VARIANCE));
+    // 战术姿态 (v2.5): 防守后的下一次攻击 蓄力增伤
+    if (p.guardCharge) {
+      dmg *= CONFIG.GUARD.chargeMul;
+      p.guardCharge = false;
+      game.msg('⚔ <b>蓄力反击!</b>', 'magic');
+    }
     const crit = rng.next() * 100 < p.crit;
     if (crit) dmg *= CONFIG.CRIT_MULT;
     let effDef = enemy.def;
@@ -246,6 +252,13 @@ const Combat = (() => {
     opts = opts || {};
     const p = game.player;
     if (p.hp <= 0) return;
+
+    // 战术姿态 (v2.5): 防守中受伤减免; 防守不会被暴击
+    const guarding = !!p.guarding;
+    if (guarding) {
+      dmg = Math.max(1, Math.round(dmg * CONFIG.GUARD.dmgMul));
+      FX.float(p.x, p.y - 0.55, '🛡 格挡', '#8fc9ff');
+    }
 
     // 护盾吸收
     const sh = p.statuses.find(s => s.id === 'shield');

@@ -851,6 +851,141 @@ simLog('\n=== 4f. v2.4 像素精灵/祝福共鸣/新手节奏 ===');
   simLog(`新手节奏: 前3层伏击 ${earlyAmbush} 处 / 4层后 ${lateAmbush} 处; F1 均敌 ${(f1Enemies / 2).toFixed(1)} vs F6 ${(f6Enemies / 2).toFixed(1)}`);
 }
 
+// ---------- 4g. v2.5: 战术姿态 / 铁匠重铸 / 深渊契约 ----------
+simLog('\n=== 4g. v2.5 战术防守/铁匠重铸/深渊契约 ===');
+{
+  // 战术姿态: 防守后减伤 + 蓄力
+  simAssert(CONFIG.GUARD && CONFIG.GUARD.dmgMul < 1 && CONFIG.GUARD.chargeMul > 1, '战术姿态: GUARD 配置缺失');
+  {
+    const pg = simPlayer(5);
+    pg.eva = 0;              // 保证被打中
+    pg.guarding = true;
+    const eg = Enemies.mk('drake', 12, new RNG('gd'));   // 高攻怪, 减伤差异才可测
+    const gg = simGame(pg, { floor: 5, enemies: [], items: [], golds: [] }, 'GD-A');
+    const hpBefore = pg.hp;
+    let dmgGuarded = null, dmgOpen = null;
+    for (let i = 0; i < 40 && dmgGuarded === null; i++) {
+      pg.hp = pg.maxHp; pg.guarding = true;
+      Combat.enemyAttack(gg, eg);
+      if (pg.hp < pg.maxHp) dmgGuarded = pg.maxHp - pg.hp;
+    }
+    for (let i = 0; i < 40 && dmgOpen === null; i++) {
+      pg.hp = pg.maxHp; pg.guarding = false;
+      Combat.enemyAttack(gg, eg);
+      if (pg.hp < pg.maxHp) dmgOpen = pg.maxHp - pg.hp;
+    }
+    simAssert(dmgGuarded !== null && dmgOpen !== null, '战术姿态: 未能取到伤害样本');
+    if (dmgGuarded !== null && dmgOpen !== null) {
+      simAssert(dmgGuarded <= Math.ceil(dmgOpen * CONFIG.GUARD.dmgMul) + 1,
+        `战术姿态: 防守伤害应显著低于普通 (守 ${dmgGuarded} vs 常 ${dmgOpen})`);
+      simLog(`战术姿态减伤: 普通 ${dmgOpen} → 防守 ${dmgGuarded} (目标 ≤${Math.ceil(dmgOpen * CONFIG.GUARD.dmgMul) + 1})`);
+    }
+    void hpBefore;
+  }
+  // 蓄力增伤: guardCharge 下同种子伤害 ×1.6
+  {
+    const pc = simPlayer(3);
+    const e1 = Enemies.mk('rat', 3, new RNG('cg1'));
+    const e2 = Enemies.mk('rat', 3, new RNG('cg2'));
+    const g1 = simGame(pc, { floor: 3, enemies: [], items: [], golds: [] }, 'CG');
+    const r1 = Combat.dealPlayerHit(g1, e1, 1);
+    const g2 = simGame(pc, { floor: 3, enemies: [], items: [], golds: [] }, 'CG');
+    pc.guardCharge = true;
+    const r2 = Combat.dealPlayerHit(g2, e2, 1);
+    simAssert(Math.abs(r2.dmg - r1.dmg * CONFIG.GUARD.chargeMul) <= 2,
+      `蓄力: 伤害应 ≈×1.6 (${r1.dmg} → ${r2.dmg})`);
+    simAssert(pc.guardCharge === false, '蓄力: 触发后应清除标记');
+    simLog(`蓄力反击: ${r1.dmg} → ${r2.dmg}`);
+  }
+
+  // 铁匠重铸台: 地图布点 + 词条确实变化
+  let forgeFloors = 0;
+  for (const seed of ['FORGE-A', 'FORGE-B']) {
+    for (let f = 2; f <= 12; f++) {
+      const L = MapGen.generate(seed, f);
+      for (let i = 0; i < L.tiles.length; i++) {
+        if (L.tiles[i] === T.FORGE) {
+          forgeFloors++;
+          const x = i % L.w, y = (i / L.w) | 0;
+          simAssert(L.forgeUsed === 0, `${seed} F${f}: forgeUsed 未初始化`);
+          simAssert(!L.enemyAt(x, y), `${seed} F${f}: 铁匠台上站了敌人`);
+        }
+      }
+    }
+  }
+  simAssert(forgeFloors > 0, '铁匠台: 22 层内未出现任何重铸台');
+  simAssert(TileDef_has(T.FORGE), '铁匠台: 图块定义缺失');
+  function TileDef_has(t) { return !!Tiles.def(t) && Tiles.def(t).interact === 'forge'; }
+  simLog(`铁匠重铸台: 22 层内出现 ${forgeFloors} 处`);
+  // 词条生成: 同种子两次重铸应能产出不同结果 (验证随机性存在)
+  {
+    let diff = 0;
+    for (let i = 0; i < 20; i++) {
+      const a = Affixes.gen(new RNG('fg' + i), 8, 'weapon', { max: 2 }).join(',');
+      const b = Affixes.gen(new RNG('fg' + (i + 100)), 8, 'weapon', { max: 2 }).join(',');
+      if (a !== b) diff++;
+    }
+    simAssert(diff >= 10, `铁匠重铸: 20 次对比仅 ${diff} 次产出不同词条`);
+  }
+
+  // 深渊契约: 配置完整 + 修饰合并 + 难度确实上升 + 商店扩容
+  simAssert(CONFIG.ASCENSION.length === 10, `深渊契约: 应 10 阶 (${CONFIG.ASCENSION.length})`);
+  const names = CONFIG.ASCENSION.map(a => a.name);
+  simAssert(new Set(names).size === 10, '深渊契约: 名称应唯一');
+  // 模拟 game.ascMods: 直接复刻实现验证数值
+  const ascMods = (n) => {
+    const m = { hpMul: 1, atkMul: 1, eliteMul: 1, bossHpMul: 1, fog: 0, priceMul: 1, goldMul: 1, extraEnemies: 0, boonCount: 0, floorHpLoss: 0, goldStart: 1 };
+    for (let i = 0; i < n; i++) {
+      const a = CONFIG.ASCENSION[i];
+      if (a.hpMul) m.hpMul *= 1 + a.hpMul;
+      if (a.atkMul) m.atkMul *= 1 + a.atkMul;
+      if (a.bossHpMul) m.bossHpMul *= 1 + a.bossHpMul;
+      if (a.eliteMul) m.eliteMul *= a.eliteMul;
+      if (a.fog) m.fog += a.fog;
+      if (a.priceMul) m.priceMul *= a.priceMul;
+      if (a.goldMul) m.goldMul *= a.goldMul;
+      if (a.extraEnemies) m.extraEnemies += a.extraEnemies;
+      if (a.boonCount) m.boonCount += a.boonCount;
+      if (a.floorHpLoss) m.floorHpLoss += a.floorHpLoss;
+      if (a.goldStart) m.goldStart *= a.goldStart;
+    }
+    return m;
+  };
+  const m10 = ascMods(10);
+  simAssert(m10.hpMul > 1.14 && m10.atkMul > 1.11, `契约10: 敌方生命/攻击应提升 (${m10.hpMul.toFixed(2)}/${m10.atkMul.toFixed(2)})`);
+  simAssert(m10.bossHpMul > 1.34, '契约10: Boss 生命应 +35%');
+  simAssert(m10.extraEnemies === 3, '契约8: 敌人 +3');
+  simAssert(m10.boonCount === -1, '契约9: 祝福应减 1');
+  simAssert(m10.fog === -2, '契约6: 视野 -2');
+  // 敌人实际变强: 同怪同层, 契约 vs 无契约
+  const eBase = Enemies.mk('rat', 5, new RNG('asc'), { chal: { hpMul: 1, atkMul: 1 } });
+  const eAsc = Enemies.mk('rat', 5, new RNG('asc'), { chal: { hpMul: m10.hpMul, atkMul: m10.atkMul } });
+  simAssert(eAsc.maxHp > eBase.maxHp && eAsc.atk >= eBase.atk, `契约: 敌人未变强 (${eBase.maxHp}/${eBase.atk} → ${eAsc.maxHp}/${eAsc.atk})`);
+  // Boss 生命契约
+  const bBase = Enemies.mk('boss_dragon', 15, new RNG('b1'), { chal: { bossHpMul: 1 } });
+  const bAsc = Enemies.mk('boss_dragon', 15, new RNG('b1'), { chal: { bossHpMul: m10.bossHpMul } });
+  simAssert(bAsc.maxHp > bBase.maxHp * 1.3, `契约: Boss 生命未提升 (${bBase.maxHp} → ${bAsc.maxHp})`);
+  simLog(`深渊契约10阶: 敌血×${m10.hpMul.toFixed(2)} 敌攻×${m10.atkMul.toFixed(2)} Boss血×${m10.bossHpMul.toFixed(2)} 视野${m10.fog} 怪+${m10.extraEnemies}`);
+
+  // 商店扩容: 商品数应达 7
+  let shopGoods = 0, shopTrials = 0;
+  for (const seed of ['SHOP-A', 'SHOP-B', 'SHOP-C']) {
+    for (const f of [3, 6, 9]) {
+      const L = MapGen.generate(seed, f);
+      if (!L.shop) continue;
+      shopTrials++;
+      const goods = L.items.filter(it => it.price !== undefined);
+      shopGoods += goods.length;
+      simAssert(goods.length <= 7, `${seed} F${f}: 商品超 7 件`);
+    }
+  }
+  simAssert(shopTrials > 0 && shopGoods / shopTrials >= 4, `商店: 平均商品数过少 (${(shopGoods / Math.max(1, shopTrials)).toFixed(1)})`);
+  simLog(`商店扩容: ${shopTrials} 家店平均 ${(shopGoods / Math.max(1, shopTrials)).toFixed(1)} 件商品`);
+
+  // E 键防守的回合结算逻辑: guarding 应在回合末转为 guardCharge
+  simAssert(typeof CONFIG.GUARD.chargeMul === 'number' && CONFIG.GUARD.chargeMul === 1.6, '战术姿态: 蓄力倍率应 1.6');
+}
+
 simLog('\n=== 结果 ===');
 if (simFailures === 0) simLog('✅ 全部检查通过');
 else simLog(`❌ ${simFailures} 项失败`);

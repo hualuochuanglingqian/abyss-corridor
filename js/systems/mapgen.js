@@ -222,6 +222,7 @@ const MapGen = (() => {
     const rng = RNG.derive(seed, 'map' + floor);
     const L = createLevel(seed, floor);
     L.chal = opts.chal || null;   // 挑战因子数值
+    L.asc = opts.asc || null;     // 深渊契约修饰 (v2.5)
     L.opts = opts;
     const type = Floors.type(floor);
     if (type === 'cave') genCave(L, rng);
@@ -315,7 +316,8 @@ const MapGen = (() => {
     const carve = (xx, yy) => {
       const t = L.tile(xx, yy);
       if (t === T.WALL || t === T.TORCH || t === T.RUBBLE || t === T.SHOPKEEP
-        || t === T.CHEST || t === T.DOOR_C || t === T.ORACLE || t === T.CAPTIVE || t === T.STATUE) {
+        || t === T.CHEST || t === T.DOOR_C || t === T.ORACLE || t === T.CAPTIVE || t === T.STATUE
+        || t === T.FORGE) {
         L.set(xx, yy, T.FLOOR);
       }
     };
@@ -391,11 +393,14 @@ const MapGen = (() => {
     let n = theme.enemyN || 8;
     // 新手节奏 (v2.4): 前 2 层减怪, 给教学留呼吸感
     if (floor <= 2) n = Math.max(4, n - 3);
+    // 深渊契约 (v2.5): 敌人数量增加
+    if (L.chal && L.chal.extraEnemies) n += L.chal.extraEnemies;
     for (let i = 0; i < n && tiles.length; i++) {
       const p = tiles.pop();
       const id = Enemies.pickForFloor(floor, rng);
-      // 精英怪: 第 2 层起 10% 概率
-      const elite = floor >= 2 && !L.theme.boss && rng.chance(0.1);
+      // 精英怪: 第 2 层起 10% 概率 (契约可翻倍)
+      const eliteChance = 0.1 * ((L.chal && L.chal.eliteMul) || 1);
+      const elite = floor >= 2 && !L.theme.boss && rng.chance(eliteChance);
       const e = Enemies.mk(id, floor, rng, { elite, chal: L.chal });
       e.x = p.x; e.y = p.y; e.homeX = p.x; e.homeY = p.y;
       L.enemies.push(e);
@@ -500,6 +505,13 @@ const MapGen = (() => {
       L.set(p.x, p.y, T.ALTAR);
       L.altarUsed = false;
     }
+    // 铁匠重铸台 (v2.5): 第 2 层起 45% — 金币爽点
+    if (floor >= 2 && rng.chance(0.45) && nearTiles.length > 2) {
+      const p = nearTiles[2];
+      clearEnemyAt(L, p.x, p.y);
+      L.set(p.x, p.y, T.FORGE);
+      L.forgeUsed = 0;   // 每台可重铸 2 次
+    }
   }
 
   /** 移除某格上的敌人 (设施占位用) */
@@ -563,10 +575,15 @@ const MapGen = (() => {
       slots.push({ x, y });
     }
     rng.shuffle(slots);
-    const nGoods = Math.min(4, slots.length);
+    const nGoods = Math.min(7, slots.length);   // v2.5: 4 → 7 件, 让金币有地方花
+    const ascPrice = L.asc && L.asc.priceMul ? L.asc.priceMul : 1;
     for (let i = 0; i < nGoods; i++) {
-      const it = Items.randomItem(rng, floor, { eq: true, noShop: true });
-      const priceMul = 1 + floor * 0.08;
+      // 前 4 件装备, 后 3 件补给/卷轴 — 保证药水与卷轴能买到
+      const it = i < 4
+        ? Items.randomItem(rng, floor, { eq: true, noShop: true })
+        : Items.randomItem(rng, floor, {});
+      if (it.price === undefined) it.price = Items.price(it.id);
+      const priceMul = (1 + floor * 0.08) * ascPrice;
       it.price = Math.max(5, Math.round(Items.price(it.id) * priceMul / 5) * 5);
       it.x = slots[i].x; it.y = slots[i].y;
       L.items.push(it);
@@ -613,14 +630,18 @@ const MapGen = (() => {
     if (floor < 1 || floor > CONFIG.MAX_FLOOR) return;
     const idx = floor - 1;
     if (typeof Meta !== 'undefined' && Meta.hasNote && Meta.hasNote(idx)) return;
-    const spots = rng.shuffled(spawnableTiles(L, 6, 38));
-    for (const s of spots) {
-      if (L.items.some(it => it.x === s.x && it.y === s.y)) continue;
-      if (L.golds.some(g => g.x === s.x && g.y === s.y)) continue;
-      if (s.x === L.spawn.x && s.y === L.spawn.y) continue;
-      clearEnemyAt(L, s.x, s.y);
-      L.notes.push({ x: s.x, y: s.y, idx });
-      return;
+    // 两轮尝试: 先找干净开阔格, 找不到再放宽 (允许与金币重叠, 碎片优先)
+    for (const [minD, maxD] of [[6, 38], [3, 99]]) {
+      const spots = rng.shuffled(spawnableTiles(L, minD, maxD));
+      for (const s of spots) {
+        if (s.x === L.spawn.x && s.y === L.spawn.y) continue;
+        if (L.items.some(it => it.x === s.x && it.y === s.y)) continue;
+        if (maxD < 99 && L.golds.some(g => g.x === s.x && g.y === s.y)) continue;
+        clearEnemyAt(L, s.x, s.y);
+        L.golds = L.golds.filter(g => !(g.x === s.x && g.y === s.y));
+        L.notes.push({ x: s.x, y: s.y, idx });
+        return;
+      }
     }
   }
 
@@ -628,7 +649,7 @@ const MapGen = (() => {
     L.ambushRooms = [];
     // 新手节奏 (v2.4): 前 3 层不出现伏击房
     if (L.theme.boss || L.floor <= 3) return;
-    const bad = new Set([T.STAIRS, T.CHEST, T.FOUNTAIN, T.ALTAR, T.SHOPKEEP, T.ORACLE, T.CAPTIVE, T.STATUE]);
+    const bad = new Set([T.STAIRS, T.CHEST, T.FOUNTAIN, T.ALTAR, T.SHOPKEEP, T.ORACLE, T.CAPTIVE, T.STATUE, T.FORGE]);
     const cands = L.rooms.filter(r => {
       const area = r.w * r.h;
       if (area < 16 || area > 60) return false;

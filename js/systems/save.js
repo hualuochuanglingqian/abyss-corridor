@@ -28,6 +28,7 @@ const SaveSys = (() => {
       turn: game.turn,
       mode: game.endless ? 'endless' : 'normal',
       challenge: game.challenge || null,
+      ascension: game.ascension || 0,
       daily: !!game.daily,
       stats: JSON.parse(JSON.stringify(game.stats)),
       player: {

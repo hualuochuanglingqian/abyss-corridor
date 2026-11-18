@@ -177,7 +177,7 @@ const Enemies = {
     const isBoss = !!d.boss;
     const deep = Math.max(0, floor - (d.minF || 1));
     let hpScale = isBoss
-      ? ENEMY_TUNING.bossHpMul
+      ? ENEMY_TUNING.bossHpMul * ((opts.chal && opts.chal.bossHpMul) || 1)
       : (1 + deep * ENEMY_TUNING.hpDepth) * ENEMY_TUNING.hpMul;
     let atkScale = isBoss
       ? ENEMY_TUNING.bossAtkMul

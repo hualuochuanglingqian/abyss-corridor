@@ -538,6 +538,13 @@ const Render = (() => {
             else drawEmoji('🙍', px + TS / 2, py + TS / 2, now, 0.8);
             break;
           }
+          case T.FORGE: {
+            blitGlow(ctx, x, y, 0.9, '#ff9538', 0.2 + 0.1 * Math.sin(now / 320));
+            const sprF = SpriteLib.get('npc_forge');
+            if (sprF) ctx.drawImage(sprF, px + TS / 2 - sprF.width / 2, py + TS / 2 - sprF.height / 2 + 1);
+            else drawEmoji('🔨', px + TS / 2, py + TS / 2, now, 0.85);
+            break;
+          }
           case T.STATUE: {
             blitGlow(ctx, x, y, 0.9, '#9aa5b5', 0.15 + 0.06 * Math.sin(now / 500));
             const sprS = SpriteLib.get('npc_statue');
@@ -1039,6 +1046,21 @@ const Render = (() => {
         if (d.acc) stats.push('命中+' + d.acc);
         if (d.crit) stats.push('暴击+' + d.crit);
         if (stats.length) lines.push(stats.join(' · '));
+        // 装备对比 (v2.5): 与当前同槽装备比较核心属性
+        if (d.kind === 'weapon' || d.kind === 'armor' || d.kind === 'trinket') {
+          const slot = d.kind === 'armor' ? 'armor' : (d.kind === 'trinket' ? 'trinket' : 'weapon');
+          const cur = game.player.equip[slot];
+          if (cur && cur.id !== it.id) {
+            const cd = ITEMS[cur.id];
+            const diff = [];
+            const dd = (k) => (d[k] || 0) - (cd[k] || 0);
+            for (const [k, label] of [['atk', '攻'], ['def', '防'], ['eva', '闪'], ['acc', '命中'], ['crit', '暴击']]) {
+              const v = dd(k);
+              if (v !== 0) diff.push(`${label}${v > 0 ? '+' : ''}${v}`);
+            }
+            lines.push(`↔ 对比当前: ${diff.length ? diff.join(' ') : '属性持平'}`);
+          }
+        }
         if (d.desc) lines.push(d.desc);
         if (it.price) lines.push(`💰 ${it.price} 金币 (Enter 购买)`);
       } else {
@@ -1047,7 +1069,7 @@ const Render = (() => {
         else {
           const td = Tiles.def(L.tiles[m.y * W + m.x]);
           if (td.interact || L.tiles[m.y * W + m.x] === T.SHOPKEEP) {
-            const tip = { stairs: '下行楼梯 (Enter)', fountain: '回响泉水 (Enter 饮用)', chest: '宝箱 (Enter 开启)', altar: '深渊祭坛 (Enter 献祭)', oracle: '预言者 (Enter 交谈)', captive: '被困的旅者 (Enter 交谈)', statue: '神秘石像 (Enter 祈愿)' }[td.interact];
+            const tip = { stairs: '下行楼梯 (Enter)', fountain: '回响泉水 (Enter 饮用)', chest: '宝箱 (Enter 开启)', altar: '深渊祭坛 (Enter 献祭)', oracle: '预言者 (Enter 交谈)', captive: '被困的旅者 (Enter 交谈)', statue: '神秘石像 (Enter 祈愿)', forge: '铁匠重铸台 (Enter 花金币重铸武器词条)' }[td.interact];
             if (tip) lines = ['🔍 ' + tip];
           }
         }

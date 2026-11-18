@@ -148,7 +148,18 @@ const Meta = (() => {
     const score = floor * 1000 + p.kills * 40 + p.gold + (won ? 10000 : 0);
     data.records.deepest = Math.max(data.records.deepest, floor);
     data.records.bestScore = Math.max(data.records.bestScore, score);
-    if (won) data.records.wins++;
+    if (won) {
+      data.records.wins++;
+      // 深渊契约解锁 (v2.5): 通关一次解锁下一阶
+      data.records.ascUnlocked = Math.min(CONFIG.ASCENSION.length, (data.records.ascUnlocked || 0) + 1);
+    }
+    // 契约最佳纪录
+    if (game.ascension > 0) {
+      const cur = data.records.ascBest;
+      if (!cur || game.ascension > cur.asc || (game.ascension === cur.asc && floor > cur.floor)) {
+        data.records.ascBest = { asc: game.ascension, floor };
+      }
+    }
     // 每日挑战纪录 (按日期归档)
     if (game.daily) {
       const d = new Date();
