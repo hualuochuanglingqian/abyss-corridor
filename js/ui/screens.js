@@ -413,6 +413,10 @@ const Screens = (() => {
   let classCb = null;
   function pickClass(cb) {
     classCb = cb || null;
+    // 隐藏其余覆盖层, 避免与标题/挑战/契约层叠影 (v2.5 修复)
+    document.querySelectorAll('.overlay').forEach(o => {
+      if (o.id !== 'overlay-class') o.classList.remove('visible');
+    });
     const box = Util.el('class-cards');
     box.innerHTML = CONFIG.CLASSES.map((c, i) => `
       <div class="boon-card class-card" data-idx="${i}">
